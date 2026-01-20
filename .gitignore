@@ -9,7 +9,6 @@ logs/
 
 # Statistics
 stats/
-*.stats
 
 # Backups
 backups/
@@ -19,6 +18,10 @@ ssl/
 *.pem
 *.crt
 *.key
+
+# Documentation (not needed for install)
+docs/
+schematics/
 
 # Python cache
 __pycache__/

@@ -136,9 +136,20 @@
     <div class="section">
         <h3>{{ 'Údržba dat' if language == 'cs' else 'Data Maintenance' }}</h3>
         <p style="color: var(--text-secondary); margin-bottom: 15px;">
-            {{ 'Ruční mazání dat. Automatická rotace probíhá podle nastavení výše.' if language == 'cs' else 'Manual data deletion. Automatic rotation follows settings above.' }}
+            {{ 'Ruční správa záloh a dat.' if language == 'cs' else 'Manual backup and data management.' }}
         </p>
         <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <form method="post" action="/system/backup-config" style="display: inline;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-primary">
+                    💾 {{ 'Zálohovat config' if language == 'cs' else 'Backup Config' }}
+                </button>
+            </form>
+            
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('restore-modal').style.display='flex'">
+                📂 {{ 'Obnovit ze zálohy' if language == 'cs' else 'Restore Backup' }}
+            </button>
+            
             <form method="post" action="/system/clear-stats" style="display: inline;">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-secondary" onclick="return confirm('{{ 'Smazat všechny statistiky?' if language == 'cs' else 'Delete all statistics?' }}')">
@@ -154,6 +165,40 @@
             </form>
         </div>
     </div>
+
+<!-- Restore Modal -->
+<div id="restore-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: var(--card-bg); padding: 30px; border-radius: 10px; max-width: 500px; width: 90%;">
+        <h3 style="margin-top: 0;">📂 {{ 'Obnovit konfiguraci' if language == 'cs' else 'Restore Configuration' }}</h3>
+        <form method="post" action="/system/restore-config">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="form-group">
+                <label>{{ 'Vyberte zálohu' if language == 'cs' else 'Select backup' }}:</label>
+                <select name="backup_file" style="width: 100%; padding: 10px; margin-top: 5px;">
+                    {% for backup in backups %}
+                    <option value="{{ backup.file }}">{{ backup.date }} ({{ backup.size }})</option>
+                    {% else %}
+                    <option value="">{{ 'Žádné zálohy' if language == 'cs' else 'No backups' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <p style="color: var(--warning-color); font-size: 0.9em; margin: 15px 0;">
+                ⚠️ {{ 'Současná konfigurace bude přepsána!' if language == 'cs' else 'Current config will be overwritten!' }}
+            </p>
+            
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-primary" {% if not backups %}disabled{% endif %}>
+                    {{ 'Obnovit' if language == 'cs' else 'Restore' }}
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('restore-modal').style.display='none'">
+                    {{ 'Zrušit' if language == 'cs' else 'Cancel' }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
     
     <button type="submit" class="btn btn-primary">{{ t('common.save') }}</button>
 </form>

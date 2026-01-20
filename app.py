@@ -1127,7 +1127,26 @@ def system():
         import os
         git_installed = os.path.isdir(os.path.join(INSTALL_DIR, '.git'))
         
-        return render_template('system.html', config=cfg, timezones=TIMEZONES, git_installed=git_installed, languages=LANGUAGES)
+        # Get list of backups
+        backups = []
+        backup_dir = os.path.join(INSTALL_DIR, 'backups')
+        if os.path.exists(backup_dir):
+            for f in sorted(os.listdir(backup_dir), reverse=True):
+                if f.startswith('config_') and f.endswith('.json'):
+                    filepath = os.path.join(backup_dir, f)
+                    try:
+                        stat = os.stat(filepath)
+                        size_kb = stat.st_size / 1024
+                        mtime = datetime.fromtimestamp(stat.st_mtime)
+                        backups.append({
+                            'file': f,
+                            'date': mtime.strftime('%d.%m.%Y %H:%M'),
+                            'size': f'{size_kb:.1f} KB'
+                        })
+                    except:
+                        pass
+        
+        return render_template('system.html', config=cfg, timezones=TIMEZONES, git_installed=git_installed, languages=LANGUAGES, backups=backups)
     except Exception as e:
         log("ERROR", f"System page error: {e}")
         import traceback
@@ -1515,6 +1534,72 @@ def clear_old_logs():
         
         audit_log.log_config_change(session['username'], "logs", f"Cleared {deleted} rotated logs", request.remote_addr)
         flash(f"Rotated logs cleared ({deleted} files)" if session.get('language') == 'en' else f"Rotované logy smazány ({deleted} souborů)", "success")
+        
+    except Exception as e:
+        flash(f"{t('common.error')}: {e}", "error")
+    
+    return redirect(url_for('system'))
+
+
+@app.route('/system/backup-config', methods=['POST'])
+@login_required
+@permission_required('manage_system')
+@csrf_protect
+def backup_config():
+    """Create manual config backup."""
+    from config_validator import ConfigValidator
+    
+    try:
+        validator = ConfigValidator()
+        backup_path = validator.backup()
+        
+        if backup_path:
+            filename = os.path.basename(backup_path)
+            audit_log.log_config_change(session['username'], "backup", f"Manual backup: {filename}", request.remote_addr)
+            flash(f"Backup created: {filename}" if session.get('language') == 'en' else f"Záloha vytvořena: {filename}", "success")
+        else:
+            flash("Backup failed" if session.get('language') == 'en' else "Záloha selhala", "error")
+        
+    except Exception as e:
+        flash(f"{t('common.error')}: {e}", "error")
+    
+    return redirect(url_for('system'))
+
+
+@app.route('/system/restore-config', methods=['POST'])
+@login_required
+@permission_required('manage_system')
+@csrf_protect
+def restore_config():
+    """Restore config from backup."""
+    backup_file = request.form.get('backup_file')
+    
+    if not backup_file:
+        flash("No backup selected" if session.get('language') == 'en' else "Nebyla vybrána záloha", "error")
+        return redirect(url_for('system'))
+    
+    backup_dir = os.path.join(INSTALL_DIR, 'backups')
+    backup_path = os.path.join(backup_dir, backup_file)
+    
+    # Security check
+    if not backup_path.startswith(backup_dir) or '..' in backup_file:
+        flash("Invalid backup file", "error")
+        return redirect(url_for('system'))
+    
+    if not os.path.exists(backup_path):
+        flash("Backup not found" if session.get('language') == 'en' else "Záloha nenalezena", "error")
+        return redirect(url_for('system'))
+    
+    try:
+        # Load backup
+        with open(backup_path, 'r') as f:
+            backup_cfg = json.load(f)
+        
+        # Save as current config (with new backup of current)
+        save_config(backup_cfg, backup=True)
+        
+        audit_log.log_config_change(session['username'], "restore", f"Restored from: {backup_file}", request.remote_addr)
+        flash(f"Config restored from {backup_file}" if session.get('language') == 'en' else f"Konfigurace obnovena z {backup_file}", "success")
         
     except Exception as e:
         flash(f"{t('common.error')}: {e}", "error")
