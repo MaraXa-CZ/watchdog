@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('groups.title') }} - {{ t('app.name') }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ t('groups.title') }}</h1>
+
+<form method="post">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    
+    <div id="groups-container">
+        {% for group in config.groups %}
+        <div class="section group-card" data-index="{{ loop.index0 }}">
+            <input type="hidden" name="group_{{ loop.index0 }}_exists" value="1">
+            <input type="hidden" name="group_{{ loop.index0 }}_id" value="{{ group.id | default(loop.index0) }}">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <!-- Enabled checkbox at the top -->
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: bold;">
+                        <input type="checkbox" name="group_{{ loop.index0 }}_enabled" value="true" 
+                               {% if group.enabled %}checked{% endif %}
+                               style="width: 20px; height: 20px;">
+                        <span style="color: {% if group.enabled %}var(--success-color){% else %}var(--text-secondary){% endif %};">
+                            {{ 'Aktivní' if language == 'cs' else 'Active' }}
+                        </span>
+                    </label>
+                    
+                    <h3 style="margin: 0;">
+                        {{ group.name }}
+                        <span style="font-size: 0.7em; color: var(--text-secondary); font-weight: normal;">
+                            (ID: {{ group.id | default(loop.index0) }})
+                        </span>
+                    </h3>
+                </div>
+                <button type="button" class="btn btn-power-off" onclick="removeGroup({{ loop.index0 }})" style="padding: 5px 10px;">
+                    🗑️ {{ t('groups.remove_group') }}
+                </button>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>{{ t('groups.group_name') }}</label>
+                    <input type="text" name="group_{{ loop.index0 }}_name" value="{{ group.name }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>{{ t('groups.outlet') }}</label>
+                    <select name="group_{{ loop.index0 }}_outlet">
+                        <option value="none" {% if group.outlet == 'none' or not group.outlet %}selected{% endif %}>
+                            {{ 'Žádná (jen statistiky)' if language == 'cs' else 'None (stats only)' }}
+                        </option>
+                        {% for key, outlet in config.outlets.items() %}
+                        <option value="{{ key }}" {% if group.outlet == key %}selected{% endif %}>
+                            {{ outlet.name }} (GPIO {{ outlet.gpio_pin }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="help">{{ 'Bez zásuvky = pouze monitoring a statistiky' if language == 'cs' else 'No outlet = monitoring and stats only' }}</div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>{{ t('groups.servers') }}</label>
+                <input type="text" name="group_{{ loop.index0 }}_servers" 
+                       value="{{ group.servers | join(' ') }}" placeholder="192.168.1.1 192.168.1.2">
+                <div class="help">{{ t('groups.servers_help') }}</div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>{{ t('groups.fail_count') }}</label>
+                    <input type="number" name="group_{{ loop.index0 }}_fail_count" 
+                           value="{{ group.fail_count }}" min="1" max="10">
+                </div>
+                
+                <div class="form-group">
+                    <label>{{ t('groups.off_time') }} (s)</label>
+                    <input type="number" name="group_{{ loop.index0 }}_off_time" 
+                           value="{{ group.off_time }}" min="1" max="60">
+                </div>
+            </div>
+            
+            <details style="margin-top: 10px;">
+                <summary style="cursor: pointer; color: var(--text-secondary);">
+                    {{ 'Rozšířené nastavení' if language == 'cs' else 'Advanced Settings' }} ▼
+                </summary>
+                <div style="padding-top: 15px;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>{{ 'Typ kontroly' if language == 'cs' else 'Check Type' }}</label>
+                            <select name="group_{{ loop.index0 }}_check_type">
+                                <option value="ping" {% if group.check_type == 'ping' or not group.check_type %}selected{% endif %}>PING</option>
+                                <option value="http" {% if group.check_type == 'http' %}selected{% endif %}>HTTP</option>
+                                <option value="tcp" {% if group.check_type == 'tcp' %}selected{% endif %}>TCP Port</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>{{ 'Port' if language == 'cs' else 'Port' }}</label>
+                            <input type="number" name="group_{{ loop.index0 }}_check_port" 
+                                   value="{{ group.check_port | default(80) }}" min="1" max="65535">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>{{ 'Multi-ping' if language == 'cs' else 'Multi-ping' }}</label>
+                            <select name="group_{{ loop.index0 }}_require_all">
+                                <option value="false" {% if not group.require_all %}selected{% endif %}>{{ 'Alespoň jeden' if language == 'cs' else 'At least one' }}</option>
+                                <option value="true" {% if group.require_all %}selected{% endif %}>{{ 'Všechny' if language == 'cs' else 'All servers' }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>{{ 'Varování latence (ms)' if language == 'cs' else 'Latency Warning (ms)' }}</label>
+                            <input type="number" name="group_{{ loop.index0 }}_latency_warning" 
+                                   value="{{ group.latency_warning | default(100) }}" min="10" max="5000">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>{{ 'Kritická latence (ms)' if language == 'cs' else 'Critical Latency (ms)' }}</label>
+                            <input type="number" name="group_{{ loop.index0 }}_latency_critical" 
+                                   value="{{ group.latency_critical | default(500) }}" min="10" max="5000">
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+        <button type="button" class="btn btn-secondary" onclick="addGroup()" id="addGroupBtn">
+            + {{ t('groups.add_group') }}
+        </button>
+    </div>
+    
+    <button type="submit" class="btn btn-primary">{{ t('groups.save') }}</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let groupCount = {{ config.groups | length }};
+const maxGroups = {{ config.max_groups | default(8) }};
+
+function addGroup() {
+    if (groupCount >= maxGroups) {
+        alert('Maximum {{ maxGroups }} {{ "skupin" if language == "cs" else "groups" }}');
+        return;
+    }
+    
+    const container = document.getElementById('groups-container');
+    const idx = groupCount;
+    const newId = Date.now();
+    
+    const html = `
+        <div class="section group-card" data-index="${idx}">
+            <input type="hidden" name="group_${idx}_exists" value="1">
+            <input type="hidden" name="group_${idx}_id" value="${newId}">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: bold;">
+                        <input type="checkbox" name="group_${idx}_enabled" value="true" style="width: 20px; height: 20px;">
+                        <span style="color: var(--text-secondary);">{{ 'Aktivní' if language == 'cs' else 'Active' }}</span>
+                    </label>
+                    <h3 style="margin: 0;">{{ 'Nová skupina' if language == 'cs' else 'New Group' }}</h3>
+                </div>
+                <button type="button" class="btn btn-power-off" onclick="removeGroup(${idx})" style="padding: 5px 10px;">
+                    🗑️ {{ t('groups.remove_group') }}
+                </button>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>{{ t('groups.group_name') }}</label>
+                    <input type="text" name="group_${idx}_name" value="{{ 'Nová skupina' if language == 'cs' else 'New Group' }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>{{ t('groups.outlet') }}</label>
+                    <select name="group_${idx}_outlet">
+                        <option value="none" selected>{{ 'Žádná (jen statistiky)' if language == 'cs' else 'None (stats only)' }}</option>
+                        {% for key, outlet in config.outlets.items() %}
+                        <option value="{{ key }}">{{ outlet.name }} (GPIO {{ outlet.gpio_pin }})</option>
+                        {% endfor %}
+                    </select>
+                    <div class="help">{{ 'Bez zásuvky = pouze monitoring a statistiky' if language == 'cs' else 'No outlet = monitoring and stats only' }}</div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>{{ t('groups.servers') }}</label>
+                <input type="text" name="group_${idx}_servers" placeholder="192.168.1.1 192.168.1.2">
+                <div class="help">{{ t('groups.servers_help') }}</div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>{{ t('groups.fail_count') }}</label>
+                    <input type="number" name="group_${idx}_fail_count" value="3" min="1" max="10">
+                </div>
+                
+                <div class="form-group">
+                    <label>{{ t('groups.off_time') }} (s)</label>
+                    <input type="number" name="group_${idx}_off_time" value="10" min="1" max="60">
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', html);
+    groupCount++;
+    
+    if (groupCount >= maxGroups) {
+        document.getElementById('addGroupBtn').style.display = 'none';
+    }
+}
+
+function removeGroup(index) {
+    const card = document.querySelector(`.group-card[data-index="${index}"]`);
+    if (card && confirm('{{ "Opravdu smazat skupinu?" if language == "cs" else "Really delete group?" }}')) {
+        card.remove();
+        groupCount--;
+        document.getElementById('addGroupBtn').style.display = 'inline-block';
+    }
+}
+</script>
+{% endblock %}

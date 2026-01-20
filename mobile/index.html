@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0e7c7b">
+    <title>Watchdog Mobile</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <style>
+        :root {
+            --bg: #1e1e1e;
+            --bg2: #252526;
+            --border: #3c3c3c;
+            --text: #cccccc;
+            --text2: #858585;
+            --accent: #0e7c7b;
+            --green: #28a745;
+            --red: #dc3545;
+            --yellow: #ffc107;
+        }
+        :root.light {
+            --bg: #f5f5f5;
+            --bg2: #ffffff;
+            --border: #e0e0e0;
+            --text: #333333;
+            --text2: #666666;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+        .header {
+            background: var(--bg2);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header h1 { font-size: 1.2em; color: var(--accent); }
+        .header .status { font-size: 0.8em; color: var(--text2); }
+        .status.online { color: var(--green); }
+        .status.offline { color: var(--red); }
+        
+        /* Login Screen */
+        .login-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .login-box {
+            background: var(--bg2);
+            padding: 30px;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 350px;
+        }
+        .login-box h2 { text-align: center; margin-bottom: 25px; color: var(--accent); }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: var(--text2); font-size: 0.9em; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text);
+            font-size: 16px;
+        }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .btn:active { opacity: 0.8; }
+        .error-msg { color: var(--red); text-align: center; margin-top: 15px; font-size: 0.9em; }
+        .server-input {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        /* Main App */
+        .app { display: none; }
+        .app.active { display: block; }
+        
+        /* Groups List */
+        .groups { padding: 15px; }
+        .group-card {
+            background: var(--bg2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+        }
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .group-name { font-weight: bold; font-size: 1.1em; }
+        .group-status {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .group-status.active { background: #2d5016; color: #6cc24a; }
+        .group-status.inactive { background: #5c1a1a; color: #f44336; }
+        
+        .group-servers {
+            color: var(--text2);
+            font-size: 0.85em;
+            margin-bottom: 10px;
+        }
+        .group-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85em;
+            color: var(--text2);
+            margin-bottom: 15px;
+        }
+        .group-stats span { display: flex; align-items: center; gap: 5px; }
+        
+        .control-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+        .ctrl-btn {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 0.9em;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        .ctrl-btn.on { background: var(--green); color: white; }
+        .ctrl-btn.off { background: var(--red); color: white; }
+        .ctrl-btn.restart { background: var(--yellow); color: #1e1e1e; }
+        .ctrl-btn:active { opacity: 0.7; }
+        .ctrl-btn:disabled { opacity: 0.5; }
+        
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg2);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+            z-index: 100;
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            color: var(--text2);
+            text-decoration: none;
+            font-size: 0.75em;
+            padding: 5px 15px;
+        }
+        .nav-item.active { color: var(--accent); }
+        .nav-item .icon { font-size: 1.5em; }
+        
+        /* Settings Screen */
+        .settings-screen { display: none; padding: 15px; }
+        .settings-screen.active { display: block; }
+        .settings-section {
+            background: var(--bg2);
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        .settings-section h3 {
+            padding: 12px 15px;
+            background: var(--border);
+            font-size: 0.9em;
+            color: var(--text2);
+        }
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+        .setting-item:last-child { border-bottom: none; }
+        .setting-label { color: var(--text); }
+        .setting-value { color: var(--text2); font-size: 0.9em; }
+        .setting-toggle {
+            display: flex;
+            gap: 8px;
+        }
+        .toggle-btn {
+            padding: 8px 15px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text2);
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .toggle-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        .logout-btn {
+            background: var(--red);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            width: 100%;
+            margin-top: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .logout-btn:active { opacity: 0.8; }
+        
+        /* Loading Spinner */
+        .loading {
+            display: flex;
+            justify-content: center;
+            padding: 30px;
+        }
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 90px;
+            left: 20px;
+            right: 20px;
+            background: var(--bg2);
+            border: 1px solid var(--accent);
+            padding: 12px 20px;
+            border-radius: 5px;
+            text-align: center;
+            z-index: 1000;
+            display: none;
+        }
+        .toast.show { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } }
+        
+        .no-groups {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text2);
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-box">
+            <h2>⚡ Watchdog</h2>
+            <div class="server-input">
+                <div class="form-group">
+                    <label>Server URL</label>
+                    <input type="text" id="serverUrl" placeholder="http://192.168.1.100">
+                </div>
+            </div>
+            <div class="form-group">
+                <label id="lblUsername">Uživatel</label>
+                <input type="text" id="username" autocapitalize="none">
+            </div>
+            <div class="form-group">
+                <label id="lblPassword">Heslo</label>
+                <input type="password" id="password">
+            </div>
+            <button class="btn" onclick="login()" id="btnLogin">Přihlásit</button>
+            <div id="loginError" class="error-msg"></div>
+        </div>
+    </div>
+    
+    <!-- Main App -->
+    <div id="app" class="app">
+        <div class="header">
+            <h1>⚡ Watchdog</h1>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <button onclick="toggleTheme()" id="headerThemeBtn" style="background: none; border: none; font-size: 1.3em; cursor: pointer; padding: 5px;">🌙</button>
+                <span id="connectionStatus" class="status">●</span>
+            </div>
+        </div>
+        
+        <!-- Dashboard Screen -->
+        <div id="dashboardScreen" class="groups active">
+            <div class="loading" id="loadingGroups">
+                <div class="spinner"></div>
+            </div>
+            <div id="groupsList"></div>
+        </div>
+        
+        <!-- Settings Screen -->
+        <div id="settingsScreen" class="settings-screen">
+            <!-- Theme & Language -->
+            <div class="settings-section">
+                <h3 id="lblAppearance">Vzhled</h3>
+                <div class="setting-item">
+                    <span class="setting-label" id="lblTheme">Téma</span>
+                    <div class="setting-toggle">
+                        <button class="toggle-btn" onclick="setTheme('dark')" id="btnDark">🌙</button>
+                        <button class="toggle-btn" onclick="setTheme('light')" id="btnLight">☀️</button>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label" id="lblLanguage">Jazyk</span>
+                    <div class="setting-toggle">
+                        <button class="toggle-btn" onclick="setLang('cs')" id="btnCS">CZ</button>
+                        <button class="toggle-btn" onclick="setLang('en')" id="btnEN">EN</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Account Info -->
+            <div class="settings-section">
+                <h3 id="lblAccount">Účet</h3>
+                <div class="setting-item">
+                    <span class="setting-label">Server</span>
+                    <span id="settingServer" class="setting-value">-</span>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label" id="lblUser">Uživatel</span>
+                    <span id="settingUser" class="setting-value">-</span>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label">Role</span>
+                    <span id="settingRole" class="setting-value">-</span>
+                </div>
+            </div>
+            
+            <!-- App Info -->
+            <div class="settings-section">
+                <h3 id="lblAbout">O aplikaci</h3>
+                <div class="setting-item">
+                    <span class="setting-label" id="lblVersion">Verze</span>
+                    <span class="setting-value">4.3.2</span>
+                </div>
+            </div>
+            
+            <!-- Logout -->
+            <button class="logout-btn" onclick="logout()" id="btnLogout">🚪 Odhlásit se</button>
+        </div>
+        
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="#" class="nav-item active" onclick="showScreen('dashboard'); return false;">
+                <span class="icon">🏠</span>
+                <span id="navDashboard">Dashboard</span>
+            </a>
+            <a href="#" class="nav-item" onclick="showScreen('settings'); return false;">
+                <span class="icon">⚙️</span>
+                <span id="navSettings">Nastavení</span>
+            </a>
+        </nav>
+    </div>
+    
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+    
+    <script>
+        // State
+        let serverUrl = localStorage.getItem('watchdog_server') || '';
+        let authToken = localStorage.getItem('watchdog_token') || '';
+        let userData = JSON.parse(localStorage.getItem('watchdog_user') || '{}');
+        let groups = [];
+        let refreshInterval = null;
+        let currentTheme = localStorage.getItem('watchdog_theme') || 'dark';
+        let currentLang = localStorage.getItem('watchdog_lang') || 'cs';
+        
+        // Translations
+        const translations = {
+            cs: {
+                username: 'Uživatel',
+                password: 'Heslo',
+                login: 'Přihlásit',
+                logout: '🚪 Odhlásit se',
+                appearance: 'Vzhled',
+                theme: 'Téma',
+                language: 'Jazyk',
+                account: 'Účet',
+                user: 'Uživatel',
+                about: 'O aplikaci',
+                version: 'Verze',
+                dashboard: 'Dashboard',
+                settings: 'Nastavení',
+                active: 'AKTIVNÍ',
+                inactive: 'NEAKTIVNÍ',
+                noGroups: 'Žádné skupiny',
+                confirmRestart: 'Opravdu restartovat',
+                sent: 'Příkaz odeslán',
+                error: 'Chyba',
+                connError: 'Chyba připojení',
+                fillAll: 'Vyplňte všechna pole',
+                loginFailed: 'Přihlášení selhalo',
+                cantConnect: 'Nelze se připojit'
+            },
+            en: {
+                username: 'Username',
+                password: 'Password',
+                login: 'Login',
+                logout: '🚪 Logout',
+                appearance: 'Appearance',
+                theme: 'Theme',
+                language: 'Language',
+                account: 'Account',
+                user: 'User',
+                about: 'About',
+                version: 'Version',
+                dashboard: 'Dashboard',
+                settings: 'Settings',
+                active: 'ACTIVE',
+                inactive: 'INACTIVE',
+                noGroups: 'No groups',
+                confirmRestart: 'Really restart',
+                sent: 'Command sent',
+                error: 'Error',
+                connError: 'Connection error',
+                fillAll: 'Fill all fields',
+                loginFailed: 'Login failed',
+                cantConnect: 'Cannot connect'
+            }
+        };
+        
+        function t(key) {
+            return translations[currentLang][key] || key;
+        }
+        
+        function updateUI() {
+            document.getElementById('lblUsername').textContent = t('username');
+            document.getElementById('lblPassword').textContent = t('password');
+            document.getElementById('btnLogin').textContent = t('login');
+            document.getElementById('btnLogout').textContent = t('logout');
+            document.getElementById('lblAppearance').textContent = t('appearance');
+            document.getElementById('lblTheme').textContent = t('theme');
+            document.getElementById('lblLanguage').textContent = t('language');
+            document.getElementById('lblAccount').textContent = t('account');
+            document.getElementById('lblUser').textContent = t('user');
+            document.getElementById('lblAbout').textContent = t('about');
+            document.getElementById('lblVersion').textContent = t('version');
+            document.getElementById('navDashboard').textContent = t('dashboard');
+            document.getElementById('navSettings').textContent = t('settings');
+            
+            // Update theme buttons
+            document.getElementById('btnDark').classList.toggle('active', currentTheme === 'dark');
+            document.getElementById('btnLight').classList.toggle('active', currentTheme === 'light');
+            
+            // Update lang buttons
+            document.getElementById('btnCS').classList.toggle('active', currentLang === 'cs');
+            document.getElementById('btnEN').classList.toggle('active', currentLang === 'en');
+        }
+        
+        function setTheme(theme) {
+            currentTheme = theme;
+            localStorage.setItem('watchdog_theme', theme);
+            document.documentElement.classList.toggle('light', theme === 'light');
+            updateHeaderThemeBtn();
+            updateUI();
+        }
+        
+        function toggleTheme() {
+            setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+        }
+        
+        function updateHeaderThemeBtn() {
+            const btn = document.getElementById('headerThemeBtn');
+            if (btn) btn.textContent = currentTheme === 'dark' ? '🌙' : '☀️';
+        }
+        
+        function setLang(lang) {
+            currentLang = lang;
+            localStorage.setItem('watchdog_lang', lang);
+            updateUI();
+            if (groups.length > 0) renderGroups();
+        }
+        
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            // Apply saved theme
+            if (currentTheme === 'light') {
+                document.documentElement.classList.add('light');
+            }
+            updateHeaderThemeBtn();
+            
+            updateUI();
+            
+            if (serverUrl) document.getElementById('serverUrl').value = serverUrl;
+            
+            if (authToken && serverUrl) {
+                showApp();
+                loadData();
+            }
+        });
+        
+        // API Call
+        async function api(endpoint, method = 'GET', data = null) {
+            const url = `${serverUrl}${endpoint}`;
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                }
+            };
+            
+            if (data) options.body = JSON.stringify(data);
+            
+            try {
+                const response = await fetch(url, options);
+                if (response.status === 401) {
+                    logout();
+                    throw new Error('Unauthorized');
+                }
+                return await response.json();
+            } catch (error) {
+                updateConnectionStatus(false);
+                throw error;
+            }
+        }
+        
+        // Login
+        async function login() {
+            const server = document.getElementById('serverUrl').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!server || !username || !password) {
+                document.getElementById('loginError').textContent = t('fillAll');
+                return;
+            }
+            
+            serverUrl = server.replace(/\/$/, '');
+            
+            try {
+                const response = await fetch(`${serverUrl}/api/auth`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.token) {
+                    authToken = data.token;
+                    userData = data.user;
+                    
+                    localStorage.setItem('watchdog_server', serverUrl);
+                    localStorage.setItem('watchdog_token', authToken);
+                    localStorage.setItem('watchdog_user', JSON.stringify(userData));
+                    
+                    document.getElementById('loginError').textContent = '';
+                    showApp();
+                    loadData();
+                } else {
+                    document.getElementById('loginError').textContent = data.error || t('loginFailed');
+                }
+            } catch (error) {
+                document.getElementById('loginError').textContent = t('cantConnect');
+            }
+        }
+        
+        // Logout
+        function logout() {
+            authToken = '';
+            userData = {};
+            localStorage.removeItem('watchdog_token');
+            localStorage.removeItem('watchdog_user');
+            
+            if (refreshInterval) clearInterval(refreshInterval);
+            
+            document.getElementById('app').classList.remove('active');
+            document.getElementById('loginScreen').style.display = 'flex';
+        }
+        
+        // Show App
+        function showApp() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('app').classList.add('active');
+            
+            document.getElementById('settingServer').textContent = serverUrl;
+            document.getElementById('settingUser').textContent = userData.username || '-';
+            document.getElementById('settingRole').textContent = userData.role || '-';
+            
+            refreshInterval = setInterval(loadData, 5000);
+        }
+        
+        // Load Data
+        async function loadData() {
+            try {
+                const data = await api('/api/groups');
+                groups = data.groups || [];
+                renderGroups();
+                updateConnectionStatus(true);
+            } catch (error) {
+                console.error('Load error:', error);
+            }
+        }
+        
+        // Render Groups
+        function renderGroups() {
+            document.getElementById('loadingGroups').style.display = 'none';
+            
+            const container = document.getElementById('groupsList');
+            
+            if (groups.length === 0) {
+                container.innerHTML = `<div class="no-groups">${t('noGroups')}</div>`;
+                return;
+            }
+            
+            const canControl = userData.permissions && userData.permissions.includes('control_relays');
+            
+            container.innerHTML = groups.filter(g => g.enabled).map((group) => `
+                <div class="group-card">
+                    <div class="group-header">
+                        <span class="group-name">${escapeHtml(group.name)}</span>
+                        <span class="group-status ${group.enabled ? 'active' : 'inactive'}">
+                            ${group.enabled ? t('active') : t('inactive')}
+                        </span>
+                    </div>
+                    <div class="group-servers">
+                        📡 ${group.servers ? group.servers.join(', ') : '-'}
+                    </div>
+                    <div class="group-stats">
+                        <span>🔄 ${group.fail_count}x</span>
+                        <span>⏱️ ${group.off_time}s</span>
+                    </div>
+                    ${canControl ? `
+                    <div class="control-buttons">
+                        <button class="ctrl-btn on" onclick="control('${escapeHtml(group.name)}', 'on')">ON</button>
+                        <button class="ctrl-btn off" onclick="control('${escapeHtml(group.name)}', 'off')">OFF</button>
+                        <button class="ctrl-btn restart" onclick="confirmRestart('${escapeHtml(group.name)}')">RESTART</button>
+                    </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+        
+        // Control
+        async function control(groupName, action) {
+            try {
+                const data = await api('/api/control', 'POST', { group: groupName, action });
+                
+                if (data.success) {
+                    showToast(`${action.toUpperCase()} - ${t('sent')}`);
+                } else {
+                    showToast(data.error || t('error'), true);
+                }
+            } catch (error) {
+                showToast(t('connError'), true);
+            }
+        }
+        
+        function confirmRestart(groupName) {
+            if (confirm(`${t('confirmRestart')} "${groupName}"?`)) {
+                control(groupName, 'restart');
+            }
+        }
+        
+        // Show Screen
+        function showScreen(screen) {
+            document.querySelectorAll('.groups, .settings-screen').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            event.target.closest('.nav-item').classList.add('active');
+            
+            switch(screen) {
+                case 'dashboard':
+                    document.getElementById('dashboardScreen').classList.add('active');
+                    loadData();
+                    break;
+                case 'settings':
+                    document.getElementById('settingsScreen').classList.add('active');
+                    break;
+            }
+        }
+        
+        function updateConnectionStatus(online) {
+            const el = document.getElementById('connectionStatus');
+            if (online) {
+                el.textContent = '● Online';
+                el.classList.add('online');
+                el.classList.remove('offline');
+            } else {
+                el.textContent = '● Offline';
+                el.classList.add('offline');
+                el.classList.remove('online');
+            }
+        }
+        
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.borderColor = isError ? 'var(--red)' : 'var(--accent)';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(console.error);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Error {{ error_code }} - Watchdog{% endblock %}
+
+{% block content %}
+<style>
+    .error-container {
+        text-align: center;
+        padding: 60px 20px;
+    }
+    
+    .error-code {
+        font-size: 6em;
+        font-weight: bold;
+        color: var(--accent-color);
+        line-height: 1;
+        margin-bottom: 20px;
+    }
+    
+    .error-message {
+        font-size: 1.5em;
+        color: var(--text-secondary);
+        margin-bottom: 30px;
+    }
+    
+    .error-actions {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .error-actions a {
+        text-decoration: none;
+    }
+</style>
+
+<div class="error-container">
+    <div class="error-code">{{ error_code }}</div>
+    <div class="error-message">{{ error_message }}</div>
+    
+    <div class="error-actions">
+        <a href="/dashboard" class="btn btn-primary">🏠 Dashboard</a>
+        <a href="javascript:history.back()" class="btn btn-secondary">← Zpět</a>
+    </div>
+</div>
+{% endblock %}

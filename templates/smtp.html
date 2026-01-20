@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Email Notifications - Watchdog{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Email Notifications (SMTP)</h1>
+
+<form method="post">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    
+    <div class="section">
+        <h3>SMTP Server</h3>
+        
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="smtp_enabled" value="true" 
+                       {% if config.smtp.enabled %}checked{% endif %}
+                       onchange="toggleSmtpFields()">
+                <span>Povolit emailové notifikace</span>
+            </label>
+        </div>
+        
+        <div id="smtp-fields" {% if not config.smtp.enabled %}style="opacity: 0.5;"{% endif %}>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>SMTP Server</label>
+                    <input type="text" name="smtp_server" value="{{ config.smtp.server | default('') }}" 
+                           placeholder="smtp.gmail.com">
+                </div>
+                
+                <div class="form-group">
+                    <label>Port</label>
+                    <input type="number" name="smtp_port" value="{{ config.smtp.port | default(587) }}" 
+                           min="1" max="65535">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Uživatelské jméno</label>
+                    <input type="text" name="smtp_username" value="{{ config.smtp.username | default('') }}" 
+                           placeholder="user@gmail.com">
+                </div>
+                
+                <div class="form-group">
+                    <label>Heslo (ponechte prázdné pro zachování)</label>
+                    <input type="password" name="smtp_password" autocomplete="new-password"
+                           placeholder="{% if config.smtp.password %}••••••••{% endif %}">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="smtp_tls" value="true" 
+                           {% if config.smtp.use_tls | default(true) %}checked{% endif %}>
+                    <span>Použít TLS/STARTTLS</span>
+                </label>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section" id="smtp-addresses" {% if not config.smtp.enabled %}style="opacity: 0.5;"{% endif %}>
+        <h3>Adresy</h3>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label>Odesílatel (From)</label>
+                <input type="email" name="smtp_from" value="{{ config.smtp.from_address | default('') }}" 
+                       placeholder="watchdog@example.com">
+            </div>
+            
+            <div class="form-group">
+                <label>Příjemci (To) - oddělení čárkou nebo mezerou</label>
+                <input type="text" name="smtp_to" value="{{ config.smtp.to_addresses | join(', ') if config.smtp.to_addresses else '' }}" 
+                       placeholder="admin@example.com, tech@example.com">
+            </div>
+        </div>
+    </div>
+    
+    <div class="section" id="smtp-notifications" {% if not config.smtp.enabled %}style="opacity: 0.5;"{% endif %}>
+        <h3>Kdy notifikovat</h3>
+        
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="notify_reset" value="true" 
+                       {% if config.smtp.notify_on_reset | default(true) %}checked{% endif %}>
+                <span>Při power resetu (doporučeno)</span>
+            </label>
+        </div>
+        
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="notify_error" value="true" 
+                       {% if config.smtp.notify_on_error %}checked{% endif %}>
+                <span>Při chybách systému</span>
+            </label>
+        </div>
+    </div>
+    
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <button type="submit" class="btn btn-primary">Uložit změny</button>
+        
+        <button type="button" class="btn btn-secondary" onclick="testSmtp()" id="test-btn"
+                {% if not config.smtp.enabled %}disabled{% endif %}>
+            📧 Test připojení
+        </button>
+    </div>
+</form>
+
+<div id="test-result" style="margin-top: 15px; display: none;"></div>
+
+<script>
+function toggleSmtpFields() {
+    const enabled = document.querySelector('input[name="smtp_enabled"]').checked;
+    const opacity = enabled ? '1' : '0.5';
+    
+    document.getElementById('smtp-fields').style.opacity = opacity;
+    document.getElementById('smtp-addresses').style.opacity = opacity;
+    document.getElementById('smtp-notifications').style.opacity = opacity;
+    document.getElementById('test-btn').disabled = !enabled;
+}
+
+async function testSmtp() {
+    const btn = document.getElementById('test-btn');
+    const result = document.getElementById('test-result');
+    
+    btn.disabled = true;
+    btn.textContent = 'Testování...';
+    result.style.display = 'none';
+    
+    try {
+        const response = await fetch('/smtp/test', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': '{{ csrf_token() }}'
+            }
+        });
+        
+        const data = await response.json();
+        
+        result.style.display = 'block';
+        if (data.success) {
+            result.className = 'alert alert-success';
+            result.textContent = '✓ ' + data.message;
+        } else {
+            result.className = 'alert alert-error';
+            result.textContent = '✗ ' + data.message;
+        }
+    } catch (e) {
+        result.style.display = 'block';
+        result.className = 'alert alert-error';
+        result.textContent = '✗ Chyba: ' + e.message;
+    }
+    
+    btn.disabled = false;
+    btn.textContent = '📧 Test připojení';
+}
+</script>
+{% endblock %}

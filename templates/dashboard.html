@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('dashboard.title') }} - {{ t('app.name') }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ t('dashboard.title') }}</h1>
+
+{% if groups %}
+<div class="dashboard-grid" id="groups-container">
+    {% for group in groups %}
+    <div class="card group-card" data-group="{{ group.name }}" draggable="{% if has_permission('manage_groups') %}true{% else %}false{% endif %}">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 style="margin: 0;">
+                {% if has_permission('manage_groups') %}
+                <span class="drag-handle" style="cursor: grab; margin-right: 8px; opacity: 0.5;">⠿</span>
+                {% endif %}
+                {{ group.name }}
+            </h3>
+            <span class="live-status checking" id="status-{{ loop.index0 }}" data-group="{{ group.name }}">
+                <span class="status-indicator">●</span>
+                <span class="status-text">{{ 'Kontroluji...' if language == 'cs' else 'Checking...' }}</span>
+            </span>
+        </div>
+        
+        <div class="group-status">
+            <!-- Server status list -->
+            <div class="server-list" id="servers-{{ loop.index0 }}" style="margin-bottom: 10px;">
+                {% for server in group.servers %}
+                <div class="server-item" data-server="{{ server }}" style="display: flex; align-items: center; padding: 5px 0; font-size: 0.9em;">
+                    <span class="server-status" style="margin-right: 8px;">⏳</span>
+                    <span class="server-name" style="flex: 1;">{{ server }}</span>
+                    <span class="server-latency" style="color: var(--text-secondary); font-size: 0.85em;">--</span>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 10px;">
+                {{ t('groups.fail_count') }}: {{ group.fail_count }} | 
+                {{ t('groups.off_time') }}: {{ group.off_time }}s |
+                {{ 'Typ' if language == 'cs' else 'Type' }}: {{ group.check_type | default('ping') | upper }}
+                {% if group.require_all %}| Multi: ALL{% endif %}
+            </div>
+            
+            {% set outlet = outlets.get(group.outlet, {}) %}
+            {% if outlet %}
+            <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 10px;">
+                🔌 {{ outlet.name }} (GPIO {{ outlet.gpio_pin }})
+            </div>
+            {% endif %}
+            
+            {% if stats_summaries.get(group.name) %}
+            <div style="font-size: 0.85em; margin-bottom: 10px; padding: 8px; background: var(--bg-primary); border-radius: 3px;">
+                📊 {{ t('stats.uptime_percent') }}: <strong>{{ stats_summaries[group.name].uptime_percent }}%</strong>
+                | {{ t('stats.total_resets') }}: {{ stats_summaries[group.name].total_resets }}
+            </div>
+            {% endif %}
+            
+            {% if has_permission('control_relays') %}
+            <div class="control-buttons">
+                <form method="post" action="/control" style="display: contents;">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="group" value="{{ loop.index0 }}">
+                    <button type="submit" name="action" value="on" class="btn btn-power-on">{{ t('control.on') }}</button>
+                    <button type="submit" name="action" value="off" class="btn btn-power-off">{{ t('control.off') }}</button>
+                    <button type="submit" name="action" value="restart" class="btn btn-restart" 
+                            onclick="return confirm('{{ t('control.confirm_restart', group=group.name) }}')">
+                        {{ t('control.restart') }}
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="section">
+    <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
+        {{ t('dashboard.no_groups') }}<br>
+        {% if has_permission('manage_groups') %}
+        <a href="/groups" style="color: var(--accent-color);">{{ t('dashboard.configure_groups') }} →</a>
+        {% endif %}
+    </p>
+</div>
+{% endif %}
+
+<div class="section">
+    <h3>{{ t('dashboard.system_info') }}</h3>
+    <div class="form-row">
+        <div><strong>{{ t('dashboard.hostname') }}:</strong> {{ config.system.hostname | default('watchdog') }}</div>
+        <div><strong>{{ t('dashboard.check_interval') }}:</strong> {{ config.check_interval | default(10) }}s</div>
+        <div><strong>{{ t('dashboard.debug_mode') }}:</strong> {{ t('common.yes') if config.system.debug else t('common.no') }}</div>
+        <div><strong>{{ t('dashboard.active_groups') }}:</strong> {{ groups | length }}</div>
+    </div>
+    <div style="margin-top: 15px; padding: 12px; background: var(--bg-primary); border-radius: 5px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <span style="color: var(--text-secondary);">🕐 {{ 'Systémový čas' if language == 'cs' else 'System Time' }}:</span>
+            <strong id="system-time" style="font-size: 1.1em; margin-left: 10px;">--:--:--</strong>
+        </div>
+        <div style="color: var(--text-secondary); font-size: 0.85em;">
+            {{ config.system.timezone | default('UTC') }}
+        </div>
+    </div>
+</div>
+
+<style>
+.live-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    background: var(--bg-primary);
+}
+.status-indicator { font-size: 1.2em; }
+.live-status.online { background: rgba(76, 175, 80, 0.2); }
+.live-status.online .status-indicator { color: #4CAF50; }
+.live-status.offline { background: rgba(244, 67, 54, 0.2); }
+.live-status.offline .status-indicator { color: #f44336; }
+.live-status.warning { background: rgba(255, 152, 0, 0.2); }
+.live-status.warning .status-indicator { color: #ff9800; }
+.live-status.checking .status-indicator { color: var(--text-secondary); animation: pulse 1s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.group-card.dragging { opacity: 0.5; transform: scale(1.02); }
+.group-card.drag-over { border: 2px dashed var(--accent-color); }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// System time
+function updateSystemTime() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const dateStr = now.toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' });
+    document.getElementById('system-time').textContent = dateStr + ' ' + timeStr;
+}
+updateSystemTime();
+setInterval(updateSystemTime, 1000);
+
+// Live status polling
+{% if live_status_enabled %}
+async function updateLiveStatus() {
+    try {
+        const response = await fetch('/api/live-status');
+        if (!response.ok) return;
+        const data = await response.json();
+        
+        for (const [groupName, groupStatus] of Object.entries(data.status)) {
+            const card = document.querySelector(`[data-group="${groupName}"]`);
+            if (!card) continue;
+            
+            const liveStatus = card.querySelector('.live-status');
+            liveStatus.classList.remove('online', 'offline', 'warning', 'checking');
+            
+            const indicator = liveStatus.querySelector('.status-indicator');
+            const text = liveStatus.querySelector('.status-text');
+            
+            if (groupStatus.healthy) {
+                liveStatus.classList.add('online');
+                indicator.textContent = '●';
+                text.textContent = 'Online';
+            } else {
+                liveStatus.classList.add('offline');
+                indicator.textContent = '●';
+                text.textContent = 'Offline';
+            }
+            
+            // Update servers
+            if (groupStatus.servers) {
+                groupStatus.servers.forEach(server => {
+                    const serverItem = card.querySelector(`[data-server="${server.target}"]`);
+                    if (!serverItem) return;
+                    
+                    const status = serverItem.querySelector('.server-status');
+                    const latency = serverItem.querySelector('.server-latency');
+                    
+                    if (server.success) {
+                        status.textContent = '🟢';
+                        latency.textContent = Math.round(server.latency_ms) + 'ms';
+                        if (server.latency_ms > 500) status.textContent = '🟡';
+                    } else {
+                        status.textContent = '🔴';
+                        latency.textContent = server.error || 'Error';
+                    }
+                });
+            }
+        }
+    } catch (e) { console.error('Status update failed:', e); }
+}
+updateLiveStatus();
+setInterval(updateLiveStatus, {{ poll_interval | default(5000) }});
+{% endif %}
+
+// Drag & drop
+{% if has_permission('manage_groups') %}
+const container = document.getElementById('groups-container');
+if (container) {
+    let draggedItem = null;
+    
+    container.addEventListener('dragstart', (e) => {
+        if (!e.target.classList.contains('group-card')) return;
+        draggedItem = e.target;
+        e.target.classList.add('dragging');
+    });
+    
+    container.addEventListener('dragend', (e) => {
+        if (!e.target.classList.contains('group-card')) return;
+        e.target.classList.remove('dragging');
+        
+        const cards = container.querySelectorAll('.group-card');
+        const order = Array.from(cards).map(c => c.dataset.group);
+        
+        fetch('/api/groups/reorder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token() }}' },
+            body: JSON.stringify({ order })
+        });
+    });
+    
+    container.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const afterEl = [...container.querySelectorAll('.group-card:not(.dragging)')].reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = e.clientY - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) return { offset, element: child };
+            return closest;
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+        
+        if (afterEl == null) container.appendChild(draggedItem);
+        else container.insertBefore(draggedItem, afterEl);
+    });
+}
+{% endif %}
+</script>
+{% endblock %}

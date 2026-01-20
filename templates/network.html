@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Síť' if language == 'cs' else 'Network' }} - {{ t('app.name') }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ 'Konfigurace sítě' if language == 'cs' else 'Network Configuration' }}</h1>
+
+{% if pending_change %}
+<!-- Pending confirmation dialog -->
+<div class="section" style="background: var(--button-restart); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+    <h3 style="color: white; margin-bottom: 15px;">⚠️ {{ 'Čeká na potvrzení!' if language == 'cs' else 'Waiting for confirmation!' }}</h3>
+    <p style="color: white; margin-bottom: 15px;">
+        {{ 'Nová konfigurace byla aplikována. Pokud nepotvrdíte do' if language == 'cs' else 'New configuration has been applied. If you do not confirm within' }}
+        <strong id="countdown">{{ rollback_timeout }}</strong>
+        {{ 'sekund, bude obnovena původní konfigurace.' if language == 'cs' else 'seconds, the original configuration will be restored.' }}
+    </p>
+    {% if new_ip %}
+    <p style="color: white; margin-bottom: 15px;">
+        {{ 'Nová IP adresa:' if language == 'cs' else 'New IP address:' }} <strong>{{ new_ip }}</strong>
+        <br><small>{{ 'Pokud se stránka nenačte, připojte se na novou adresu.' if language == 'cs' else 'If page does not load, connect to new address.' }}</small>
+    </p>
+    {% endif %}
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <form method="post" action="/network/confirm" style="display: inline;">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary" style="background: var(--button-on);">
+                ✓ {{ 'Potvrdit konfiguraci' if language == 'cs' else 'Confirm Configuration' }}
+            </button>
+        </form>
+        <form method="post" action="/network/cancel" style="display: inline;">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-secondary">
+                ✗ {{ 'Vrátit původní' if language == 'cs' else 'Restore Original' }}
+            </button>
+        </form>
+    </div>
+</div>
+<script>
+let seconds = {{ rollback_timeout }};
+const countdownEl = document.getElementById('countdown');
+const interval = setInterval(() => {
+    seconds--;
+    if (countdownEl) countdownEl.textContent = seconds;
+    if (seconds <= 0) {
+        clearInterval(interval);
+        location.reload();
+    }
+}, 1000);
+</script>
+{% endif %}
+
+<div class="section">
+    <h3>{{ 'Aktuální stav' if language == 'cs' else 'Current Status' }}</h3>
+    <div class="dashboard-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div class="card" style="text-align: center;">
+            <div style="font-size: 0.9em; color: var(--text-secondary);">{{ 'Rozhraní' if language == 'cs' else 'Interface' }}</div>
+            <div style="font-size: 1.5em; font-weight: bold;">{{ current.interface }}</div>
+        </div>
+        <div class="card" style="text-align: center;">
+            <div style="font-size: 0.9em; color: var(--text-secondary);">{{ 'IP adresa' if language == 'cs' else 'IP Address' }}</div>
+            <div style="font-size: 1.5em; font-weight: bold; color: var(--accent-color);">{{ current.ip_address or '-' }}</div>
+        </div>
+        <div class="card" style="text-align: center;">
+            <div style="font-size: 0.9em; color: var(--text-secondary);">{{ 'Brána' if language == 'cs' else 'Gateway' }}</div>
+            <div style="font-size: 1.2em;">{{ current.gateway or '-' }}</div>
+        </div>
+        <div class="card" style="text-align: center;">
+            <div style="font-size: 0.9em; color: var(--text-secondary);">{{ 'Režim' if language == 'cs' else 'Mode' }}</div>
+            <div style="font-size: 1.2em;">
+                {% if current.mode == 'static' %}
+                <span style="color: var(--button-on);">● Static</span>
+                {% else %}
+                <span style="color: var(--accent-color);">● DHCP</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="post" id="networkForm">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    
+    <div class="section">
+        <h3>{{ 'IP Konfigurace' if language == 'cs' else 'IP Configuration' }}</h3>
+        
+        <div class="form-group">
+            <label>{{ 'Síťové rozhraní' if language == 'cs' else 'Network Interface' }}</label>
+            <select name="interface">
+                {% for iface in interfaces %}
+                <option value="{{ iface }}" {% if iface == current.interface %}selected{% endif %}>{{ iface }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>{{ 'Režim' if language == 'cs' else 'Mode' }}</label>
+            <div style="display: flex; gap: 20px;">
+                <label class="checkbox-label">
+                    <input type="radio" name="network_mode" value="dhcp" 
+                           {% if current.mode == 'dhcp' %}checked{% endif %}
+                           onchange="toggleStaticFields()">
+                    DHCP ({{ 'automatická konfigurace' if language == 'cs' else 'automatic configuration' }})
+                </label>
+                <label class="checkbox-label">
+                    <input type="radio" name="network_mode" value="static" 
+                           {% if current.mode == 'static' %}checked{% endif %}
+                           onchange="toggleStaticFields()">
+                    {{ 'Statická IP' if language == 'cs' else 'Static IP' }}
+                </label>
+            </div>
+        </div>
+        
+        <div id="static-fields" {% if current.mode != 'static' %}style="display: none;"{% endif %}>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>{{ 'IP adresa' if language == 'cs' else 'IP Address' }} *</label>
+                    <input type="text" name="static_ip" id="static_ip" 
+                           value="{{ config.network.static_ip or current.ip_address }}" 
+                           placeholder="192.168.1.100" pattern="^(\d{1,3}\.){3}\d{1,3}$">
+                </div>
+                
+                <div class="form-group">
+                    <label>{{ 'Maska sítě' if language == 'cs' else 'Netmask' }} *</label>
+                    <input type="text" name="netmask" value="{{ config.network.netmask | default(current.netmask) | default('255.255.255.0') }}" 
+                           placeholder="255.255.255.0" pattern="^(\d{1,3}\.){3}\d{1,3}$">
+                </div>
+                
+                <div class="form-group">
+                    <label>{{ 'Výchozí brána' if language == 'cs' else 'Gateway' }} *</label>
+                    <input type="text" name="gateway" value="{{ config.network.gateway or current.gateway }}" 
+                           placeholder="192.168.1.1" pattern="^(\d{1,3}\.){3}\d{1,3}$">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h3>DNS {{ 'Servery' if language == 'cs' else 'Servers' }}</h3>
+        
+        <div class="form-group">
+            <label>DNS {{ 'servery (oddělené mezerou)' if language == 'cs' else 'servers (space separated)' }}</label>
+            <input type="text" name="dns_servers" 
+                   value="{{ config.network.dns_servers | default(current.dns_servers) | join(' ') }}" 
+                   placeholder="8.8.8.8 1.1.1.1">
+        </div>
+    </div>
+    
+    <div class="alert alert-warning" style="background: rgba(255, 193, 7, 0.1); border: 1px solid var(--button-restart); padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+        <strong>⚠️ {{ 'Upozornění' if language == 'cs' else 'Warning' }}:</strong>
+        <p style="margin: 10px 0;">
+            {{ 'Změna síťové konfigurace se ihned aplikuje do systému. Po uložení budete mít' if language == 'cs' else 'Network configuration changes will be applied immediately. After saving, you will have' }}
+            <strong>{{ rollback_timeout }} {{ 'sekund' if language == 'cs' else 'seconds' }}</strong>
+            {{ 'na potvrzení změn. Pokud nepotvrdíte (například kvůli ztrátě spojení), konfigurace se automaticky vrátí na původní hodnoty.' if language == 'cs' else 'to confirm changes. If you do not confirm (e.g. due to connection loss), configuration will automatically revert to original values.' }}
+        </p>
+        
+        <div class="form-group" style="margin-top: 15px; margin-bottom: 0;">
+            <label class="checkbox-label" style="color: var(--text-primary);">
+                <input type="checkbox" name="confirm_risk" id="confirm_risk" required>
+                <strong>{{ 'Rozumím rizikům a souhlasím s aplikací změn' if language == 'cs' else 'I understand the risks and agree to apply changes' }}</strong>
+            </label>
+        </div>
+    </div>
+    
+    <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+        💾 {{ 'Uložit a aplikovat' if language == 'cs' else 'Save and Apply' }}
+    </button>
+</form>
+
+<div class="section" style="margin-top: 30px;">
+    <h3>{{ 'Informace o systému' if language == 'cs' else 'System Information' }}</h3>
+    <table style="width: 100%;">
+        <tr>
+            <td style="padding: 8px; color: var(--text-secondary);">{{ 'Typ konfigurace' if language == 'cs' else 'Configuration type' }}</td>
+            <td style="padding: 8px;"><code>{{ current.network_type }}</code></td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; color: var(--text-secondary);">{{ 'Dostupná rozhraní' if language == 'cs' else 'Available interfaces' }}</td>
+            <td style="padding: 8px;">{{ interfaces | join(', ') }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; color: var(--text-secondary);">DNS</td>
+            <td style="padding: 8px;">{{ current.dns_servers | join(', ') or '-' }}</td>
+        </tr>
+    </table>
+</div>
+
+{% if redirect_to %}
+<!-- Redirect to new IP -->
+<script>
+setTimeout(function() {
+    window.location.href = '{{ redirect_to }}';
+}, 3000);
+</script>
+<div class="section" style="background: var(--accent-color); padding: 20px; border-radius: 8px; text-align: center;">
+    <h3 style="color: white;">🔄 {{ 'Přesměrování...' if language == 'cs' else 'Redirecting...' }}</h3>
+    <p style="color: white;">
+        {{ 'Za 3 sekundy budete přesměrováni na novou adresu:' if language == 'cs' else 'In 3 seconds you will be redirected to new address:' }}
+        <br><strong><a href="{{ redirect_to }}" style="color: white;">{{ redirect_to }}</a></strong>
+    </p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleStaticFields() {
+    const staticFields = document.getElementById('static-fields');
+    const isStatic = document.querySelector('input[name="network_mode"]:checked').value === 'static';
+    staticFields.style.display = isStatic ? 'block' : 'none';
+}
+
+// Enable submit only when checkbox is checked
+document.getElementById('confirm_risk').addEventListener('change', function() {
+    document.getElementById('submitBtn').disabled = !this.checked;
+});
+</script>
+{% endblock %}

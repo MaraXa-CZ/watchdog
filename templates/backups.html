@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Backups - Watchdog{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Configuration Backups</h1>
+
+<div class="section">
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">
+        Zálohy konfigurace jsou automaticky vytvářeny při každé změně nastavení.
+        Můžete zde obnovit předchozí konfiguraci.
+    </p>
+    
+    {% if backups %}
+    <table>
+        <thead>
+            <tr>
+                <th>Soubor</th>
+                <th>Datum</th>
+                <th>Velikost</th>
+                <th>Akce</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for backup in backups %}
+            <tr>
+                <td><code>{{ backup.filename }}</code></td>
+                <td>{{ backup.date }}</td>
+                <td>{{ backup.size }}</td>
+                <td>
+                    <form method="post" action="/backup/restore/{{ backup.filename }}" style="display: inline;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-secondary" style="padding: 5px 10px;"
+                                onclick="return confirm('Opravdu obnovit tuto zálohu? Aktuální konfigurace bude přepsána.')">
+                            🔄 Obnovit
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
+        Žádné zálohy k dispozici.
+    </p>
+    {% endif %}
+</div>
+
+<div class="alert alert-info">
+    <strong>Tip:</strong> Pro ruční zálohu použijte 
+    <a href="/export" style="color: inherit;">Export konfigurace</a> v System nastavení.
+</div>
+{% endblock %}

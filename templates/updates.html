@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Aktualizace' if language == 'cs' else 'Updates' }} - {{ t('app.name') }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ 'Aktualizace systému' if language == 'cs' else 'System Updates' }}</h1>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <h3>{{ 'Aktuální verze' if language == 'cs' else 'Current Version' }}</h3>
+        <div style="font-size: 2em; font-weight: bold; color: var(--accent-color); margin: 15px 0;">
+            v{{ update_info.current_version }}
+        </div>
+        
+        {% if git_status.is_git_repo %}
+        <div style="font-size: 0.9em; color: var(--text-secondary);">
+            <p>Branch: <strong>{{ git_status.branch }}</strong></p>
+            <p>Commit: <code>{{ git_status.commit }}</code></p>
+            {% if git_status.has_changes %}
+            <p style="color: var(--button-restart);">⚠️ {{ 'Lokální změny detekovány' if language == 'cs' else 'Local changes detected' }}</p>
+            {% endif %}
+        </div>
+        {% else %}
+        <p style="color: var(--text-secondary); font-size: 0.9em;">
+            {{ 'Instalováno bez Git' if language == 'cs' else 'Installed without Git' }}
+        </p>
+        {% endif %}
+    </div>
+    
+    <div class="card">
+        <h3>{{ 'Dostupná verze' if language == 'cs' else 'Available Version' }}</h3>
+        
+        {% if update_info.error %}
+        <div style="color: var(--button-restart); margin: 15px 0;">
+            ❌ {{ update_info.error }}
+        </div>
+        {% elif update_info.update_available %}
+        <div style="font-size: 2em; font-weight: bold; color: var(--button-on); margin: 15px 0;">
+            v{{ update_info.latest_version }}
+        </div>
+        <p style="color: var(--button-on);">🎉 {{ 'Nová verze je dostupná!' if language == 'cs' else 'New version available!' }}</p>
+        {% else %}
+        <div style="font-size: 2em; font-weight: bold; color: var(--text-secondary); margin: 15px 0;">
+            v{{ update_info.latest_version or update_info.current_version }}
+        </div>
+        <p style="color: var(--button-on);">✓ {{ 'Máte nejnovější verzi' if language == 'cs' else 'You have the latest version' }}</p>
+        {% endif %}
+        
+        <div style="margin-top: 15px;">
+            <button type="button" class="btn btn-secondary" onclick="checkUpdates()" id="check-btn">
+                🔄 {{ 'Zkontrolovat aktualizace' if language == 'cs' else 'Check for Updates' }}
+            </button>
+        </div>
+    </div>
+</div>
+
+{% if update_info.update_available and git_status.is_git_repo %}
+<div class="section" style="margin-top: 20px;">
+    <h3>⬇️ {{ 'Instalovat aktualizaci' if language == 'cs' else 'Install Update' }}</h3>
+    
+    {% if update_info.release_notes %}
+    <div style="background: var(--bg-primary); padding: 15px; border-radius: 5px; margin-bottom: 20px; max-height: 200px; overflow-y: auto;">
+        <strong>{{ 'Poznámky k vydání' if language == 'cs' else 'Release Notes' }}:</strong>
+        <pre style="white-space: pre-wrap; margin: 10px 0 0 0; font-size: 0.9em;">{{ update_info.release_notes }}</pre>
+    </div>
+    {% endif %}
+    
+    <form method="post" action="/updates/perform">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-primary" style="padding: 15px 30px;"
+                onclick="return confirm('{{ 'Aktualizovat na v' if language == 'cs' else 'Update to v' }}{{ update_info.latest_version }}? {{ 'Služby budou restartovány.' if language == 'cs' else 'Services will be restarted.' }}')">
+            ⬇️ {{ 'Aktualizovat na v' if language == 'cs' else 'Update to v' }}{{ update_info.latest_version }}
+        </button>
+    </form>
+</div>
+{% elif not git_status.is_git_repo %}
+<div class="section" style="margin-top: 20px;">
+    <h3>{{ 'Ruční aktualizace' if language == 'cs' else 'Manual Update' }}</h3>
+    <p style="color: var(--text-secondary);">
+        {{ 'Pro automatické aktualizace nainstalujte přes Git:' if language == 'cs' else 'For automatic updates, install via Git:' }}
+    </p>
+    <pre style="background: var(--bg-primary); padding: 15px; border-radius: 5px; overflow-x: auto;">
+cd /opt
+sudo rm -rf watchdog
+sudo git clone https://github.com/{{ git_repo }}.git watchdog
+cd watchdog
+sudo bash install.sh</pre>
+</div>
+{% endif %}
+
+<div class="section" style="margin-top: 20px;">
+    <h3>{{ 'Historie kontrol' if language == 'cs' else 'Check History' }}</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9em;">
+        {{ 'Poslední kontrola' if language == 'cs' else 'Last checked' }}: 
+        <span id="last-check">{{ update_info.checked_at or '-' }}</span>
+    </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function checkUpdates() {
+    const btn = document.getElementById('check-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ {{ "Kontroluji..." if language == "cs" else "Checking..." }}';
+    
+    try {
+        const response = await fetch('/api/check-updates');
+        const data = await response.json();
+        
+        if (data.update_available) {
+            location.reload();
+        } else if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            alert('{{ "Máte nejnovější verzi" if language == "cs" else "You have the latest version" }}');
+        }
+    } catch (e) {
+        alert('{{ "Kontrola selhala" if language == "cs" else "Check failed" }}: ' + e);
+    }
+    
+    btn.disabled = false;
+    btn.textContent = '🔄 {{ "Zkontrolovat aktualizace" if language == "cs" else "Check for Updates" }}';
+}
+</script>
+{% endblock %}

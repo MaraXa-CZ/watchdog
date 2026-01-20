@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('stats.title') }} - {{ t('app.name') }}{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .group-select-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .group-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 15px;
+        background: var(--bg-secondary);
+        border: 2px solid var(--border-color);
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.2s;
+        user-select: none;
+    }
+    .group-chip:hover {
+        border-color: var(--accent-color);
+    }
+    .group-chip.selected {
+        background: var(--accent-color);
+        border-color: var(--accent-color);
+        color: white;
+    }
+    .group-chip input {
+        display: none;
+    }
+    .compare-info {
+        background: var(--bg-secondary);
+        padding: 10px 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        font-size: 0.9em;
+        color: var(--text-secondary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ t('stats.title') }}</h1>
+
+<div class="section">
+    <div class="form-group" style="margin-bottom: 15px;">
+        <label>{{ 'Vyberte skupiny k porovnání' if language == 'cs' else 'Select groups to compare' }}</label>
+        <div class="group-select-container" id="groupChips">
+            {% for group in groups %}
+            <label class="group-chip {% if group in selected_groups %}selected{% endif %}">
+                <input type="checkbox" name="groups" value="{{ group }}" 
+                       {% if group in selected_groups %}checked{% endif %}
+                       onchange="updateGroups()">
+                {{ group }}
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="form-row">
+        <div class="form-group">
+            <label>{{ 'Období' if language == 'cs' else 'Period' }}</label>
+            <select id="daysSelect" onchange="updateGroups()">
+                <option value="1" {% if selected_days == 1 %}selected{% endif %}>{{ t('stats.last_24h') }}</option>
+                <option value="7" {% if selected_days == 7 %}selected{% endif %}>{{ t('stats.last_7d') }}</option>
+                <option value="30" {% if selected_days == 30 %}selected{% endif %}>{{ t('stats.last_30d') }}</option>
+            </select>
+        </div>
+    </div>
+    
+    {% if selected_groups|length > 1 %}
+    <div class="compare-info">
+        📊 {{ 'Porovnáváte' if language == 'cs' else 'Comparing' }} {{ selected_groups|length }} {{ 'skupin' if language == 'cs' else 'groups' }}: 
+        <strong>{{ selected_groups|join(', ') }}</strong>
+    </div>
+    {% endif %}
+</div>
+
+{% if stats %}
+<div class="dashboard-grid">
+    {% for group_name, group_stats in stats.items() %}
+    <div class="card">
+        <h3>{{ group_name }}</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <div style="font-size: 2em; font-weight: bold; color: {% if group_stats.summary.uptime_percent >= 99 %}var(--button-on){% elif group_stats.summary.uptime_percent >= 95 %}var(--button-restart){% else %}var(--button-off){% endif %};">
+                    {{ group_stats.summary.uptime_percent }}%
+                </div>
+                <div style="font-size: 0.8em; color: var(--text-secondary);">{{ 'Dostupnost' if language == 'cs' else 'Uptime' }}</div>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 1.5em; font-weight: bold;">
+                    {{ '%.1f' % group_stats.summary.avg_response_time if group_stats.summary.avg_response_time else '0' }} ms
+                </div>
+                <div style="font-size: 0.8em; color: var(--text-secondary);">{{ 'Ø Odezva' if language == 'cs' else 'Avg Response' }}</div>
+            </div>
+        </div>
+        <div style="margin-top: 10px; font-size: 0.85em; color: var(--text-secondary);">
+            ✓ {{ group_stats.summary.successful_checks }} | 
+            ✗ {{ group_stats.summary.failed_checks }} | 
+            🔄 {{ group_stats.summary.total_resets }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="section">
+    <h3>{{ t('stats.availability') }}</h3>
+    <canvas id="availabilityChart" height="120"></canvas>
+</div>
+
+<div class="section">
+    <h3>{{ t('stats.response_time') }}</h3>
+    <canvas id="responseChart" height="120"></canvas>
+</div>
+{% else %}
+<div class="section">
+    <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
+        {{ 'Vyberte alespoň jednu skupinu' if language == 'cs' else 'Select at least one group' }}
+    </p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateGroups() {
+    const checkboxes = document.querySelectorAll('input[name="groups"]:checked');
+    const groups = Array.from(checkboxes).map(cb => cb.value);
+    const days = document.getElementById('daysSelect').value;
+    
+    if (groups.length === 0) {
+        // Select first group if none selected
+        const firstChip = document.querySelector('.group-chip input');
+        if (firstChip) {
+            firstChip.checked = true;
+            firstChip.parentElement.classList.add('selected');
+            groups.push(firstChip.value);
+        }
+    }
+    
+    // Update chip styles
+    document.querySelectorAll('.group-chip').forEach(chip => {
+        const input = chip.querySelector('input');
+        chip.classList.toggle('selected', input.checked);
+    });
+    
+    // Navigate with groups as comma-separated list
+    window.location.href = `/stats?groups=${encodeURIComponent(groups.join(','))}&days=${days}`;
+}
+
+{% if stats and combined_chart_data %}
+const chartData = {{ combined_chart_data | tojson }};
+
+// Color palette
+const colors = [
+    { border: '#0e7c7b', bg: 'rgba(14, 124, 123, 0.2)' },
+    { border: '#e74c3c', bg: 'rgba(231, 76, 60, 0.2)' },
+    { border: '#3498db', bg: 'rgba(52, 152, 219, 0.2)' },
+    { border: '#9b59b6', bg: 'rgba(155, 89, 182, 0.2)' },
+    { border: '#f39c12', bg: 'rgba(243, 156, 18, 0.2)' },
+    { border: '#1abc9c', bg: 'rgba(26, 188, 156, 0.2)' },
+    { border: '#e91e63', bg: 'rgba(233, 30, 99, 0.2)' },
+    { border: '#00bcd4', bg: 'rgba(0, 188, 212, 0.2)' },
+    { border: '#ff5722', bg: 'rgba(255, 87, 34, 0.2)' },
+    { border: '#607d8b', bg: 'rgba(96, 125, 139, 0.2)' }
+];
+
+// Build datasets for availability
+let availDatasets = [];
+let respDatasets = [];
+let colorIdx = 0;
+
+Object.keys(chartData).forEach(key => {
+    const data = chartData[key];
+    const color = colors[colorIdx % colors.length];
+    
+    // Availability dataset
+    availDatasets.push({
+        label: key,
+        data: data.availability,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 2
+    });
+    
+    // Response time dataset
+    respDatasets.push({
+        label: key,
+        data: data.response_times,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 2,
+        spanGaps: true
+    });
+    
+    colorIdx++;
+});
+
+// Get labels from first dataset
+const labels = chartData[Object.keys(chartData)[0]]?.labels || [];
+
+// Availability Chart
+const availCtx = document.getElementById('availabilityChart').getContext('2d');
+new Chart(availCtx, {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: availDatasets
+    },
+    options: {
+        responsive: true,
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
+        scales: {
+            y: {
+                min: 0,
+                max: 100,
+                title: { display: true, text: '%', color: '#858585' },
+                ticks: { color: '#858585' },
+                grid: { color: '#3c3c3c' }
+            },
+            x: {
+                ticks: { color: '#858585', maxRotation: 45 },
+                grid: { color: '#3c3c3c' }
+            }
+        },
+        plugins: {
+            legend: { labels: { color: '#cccccc' }, position: 'bottom' },
+            tooltip: {
+                callbacks: {
+                    label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%'
+                }
+            }
+        }
+    }
+});
+
+// Response Time Chart
+const respCtx = document.getElementById('responseChart').getContext('2d');
+new Chart(respCtx, {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: respDatasets
+    },
+    options: {
+        responsive: true,
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: { display: true, text: 'ms', color: '#858585' },
+                ticks: { color: '#858585' },
+                grid: { color: '#3c3c3c' }
+            },
+            x: {
+                ticks: { color: '#858585', maxRotation: 45 },
+                grid: { color: '#3c3c3c' }
+            }
+        },
+        plugins: {
+            legend: { labels: { color: '#cccccc' }, position: 'bottom' },
+            tooltip: {
+                callbacks: {
+                    label: ctx => ctx.dataset.label + ': ' + (ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) + ' ms' : 'N/A')
+                }
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

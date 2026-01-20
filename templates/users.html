@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('users.title') }} - {{ t('app.name') }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ t('users.title') }}</h1>
+
+<div class="section">
+    <h3>{{ t('users.add_user') }}</h3>
+    <form method="post" action="/users/add">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="form-row">
+            <div class="form-group">
+                <label>{{ t('users.username') }}</label>
+                <input type="text" name="username" required minlength="3">
+            </div>
+            <div class="form-group">
+                <label>{{ t('auth.password') }}</label>
+                <input type="password" name="password" required minlength="4">
+            </div>
+            <div class="form-group">
+                <label>{{ t('users.role') }}</label>
+                <select name="role">
+                    {% for role_key, role_info in roles.items() %}
+                    <option value="{{ role_key }}">{{ t('roles.' + role_key) }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>{{ t('users.language') }}</label>
+                <select name="language">
+                    {% for code, lang_info in languages.items() %}
+                    <option value="{{ code }}">{{ lang_info.flag }} {{ lang_info.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">{{ t('common.add') }}</button>
+    </form>
+</div>
+
+<div class="section">
+    <h3>{{ t('users.title') }}</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t('users.username') }}</th>
+                <th>{{ t('users.role') }}</th>
+                <th>{{ t('users.language') }}</th>
+                <th>{{ t('users.last_login') }}</th>
+                <th>{{ t('users.active') }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td><strong>{{ u.username }}</strong></td>
+                <td>
+                    <form method="post" action="/users/edit/{{ u.username }}" style="display: inline;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="language" value="{{ u.language }}">
+                        <input type="hidden" name="active" value="{{ 'true' if u.active else 'false' }}">
+                        <select name="role" onchange="this.form.submit()" style="padding: 5px;">
+                            {% for role_key in roles.keys() %}
+                            <option value="{{ role_key }}" {% if u.role == role_key %}selected{% endif %}>
+                                {{ t('roles.' + role_key) }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </td>
+                <td>{{ languages.get(u.language, {}).flag }} {{ languages.get(u.language, {}).name }}</td>
+                <td>{{ u.last_login[:16] if u.last_login else t('users.never') }}</td>
+                <td>
+                    <form method="post" action="/users/edit/{{ u.username }}" style="display: inline;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="role" value="{{ u.role }}">
+                        <input type="hidden" name="language" value="{{ u.language }}">
+                        <input type="hidden" name="active" value="{{ 'false' if u.active else 'true' }}">
+                        <button type="submit" class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.85em;">
+                            {% if u.active %}✓{% else %}✗{% endif %}
+                        </button>
+                    </form>
+                </td>
+                <td>
+                    <!-- Reset password -->
+                    <form method="post" action="/users/reset-password/{{ u.username }}" style="display: inline;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="password" name="new_password" placeholder="{{ t('users.new_password') }}" 
+                               style="width: 100px; padding: 5px;" required minlength="4">
+                        <button type="submit" class="btn btn-secondary" style="padding: 5px 10px;">
+                            {{ t('users.reset_password') }}
+                        </button>
+                    </form>
+                    
+                    <!-- Delete -->
+                    {% if u.username != user.username %}
+                    <form method="post" action="/users/delete/{{ u.username }}" style="display: inline; margin-left: 5px;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-power-off" style="padding: 5px 10px;"
+                                onclick="return confirm('{{ t('users.confirm_delete', user=u.username) }}')">
+                            {{ t('common.delete') }}
+                        </button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650" style="font-family: Arial, sans-serif;">
+  <!-- Background -->
+  <rect width="900" height="650" fill="#1e1e1e"/>
+  
+  <!-- Title -->
+  <text x="450" y="40" text-anchor="middle" fill="#0e7c7b" font-size="24" font-weight="bold">
+    Watchdog - Easy Mode (1x SSR)
+  </text>
+  <text x="450" y="65" text-anchor="middle" fill="#858585" font-size="14">
+    Schéma zapojení Raspberry Pi + SSR relé + 230V zásuvka
+  </text>
+  
+  <!-- Raspberry Pi Box -->
+  <rect x="50" y="120" width="220" height="280" rx="10" fill="#2d5016" stroke="#6cc24a" stroke-width="2"/>
+  <text x="160" y="150" text-anchor="middle" fill="#6cc24a" font-size="16" font-weight="bold">Raspberry Pi</text>
+  
+  <!-- GPIO Pins -->
+  <rect x="240" y="180" width="30" height="180" fill="#252526" stroke="#3c3c3c"/>
+  <text x="255" y="175" text-anchor="middle" fill="#858585" font-size="10">GPIO</text>
+  
+  <!-- Pin labels -->
+  <text x="235" y="200" text-anchor="end" fill="#dc3545" font-size="11">3.3V (Pin 1)</text>
+  <circle cx="255" cy="195" r="4" fill="#dc3545"/>
+  
+  <text x="235" y="225" text-anchor="end" fill="#ffc107" font-size="11">GPIO17 (Pin 11)</text>
+  <circle cx="255" cy="220" r="4" fill="#ffc107"/>
+  
+  <text x="235" y="300" text-anchor="end" fill="#333" font-size="11">GND (Pin 6)</text>
+  <circle cx="255" cy="295" r="4" fill="#333" stroke="#858585"/>
+  
+  <!-- SSR Relay Box -->
+  <rect x="380" y="160" width="180" height="200" rx="5" fill="#1a3a5c" stroke="#64b5f6" stroke-width="2"/>
+  <text x="470" y="190" text-anchor="middle" fill="#64b5f6" font-size="14" font-weight="bold">SSR RELÉ</text>
+  <text x="470" y="210" text-anchor="middle" fill="#858585" font-size="11">(Solid State Relay)</text>
+  
+  <!-- SSR DC Side -->
+  <rect x="395" y="230" width="65" height="80" fill="#252526" stroke="#3c3c3c"/>
+  <text x="427" y="250" text-anchor="middle" fill="#858585" font-size="10">DC INPUT</text>
+  <text x="410" y="275" fill="#dc3545" font-size="10">+ (3-32V)</text>
+  <circle cx="400" cy="290" r="5" fill="#dc3545"/>
+  <text x="410" y="305" fill="#333" font-size="10">- (GND)</text>
+  <circle cx="400" cy="320" r="5" fill="#333" stroke="#858585"/>
+  
+  <!-- SSR AC Side -->
+  <rect x="480" y="230" width="65" height="80" fill="#252526" stroke="#3c3c3c"/>
+  <text x="512" y="250" text-anchor="middle" fill="#858585" font-size="10">AC OUTPUT</text>
+  <text x="495" y="275" fill="#ffc107" font-size="10">LOAD</text>
+  <circle cx="540" cy="275" r="5" fill="#ffc107"/>
+  <text x="495" y="305" fill="#0e7c7b" font-size="10">LINE</text>
+  <circle cx="540" cy="305" r="5" fill="#0e7c7b"/>
+  
+  <!-- 230V Input -->
+  <rect x="650" y="120" width="200" height="120" rx="5" fill="#5c1a1a" stroke="#f44336" stroke-width="2"/>
+  <text x="750" y="150" text-anchor="middle" fill="#f44336" font-size="14" font-weight="bold">⚡ 230V AC</text>
+  <text x="750" y="170" text-anchor="middle" fill="#858585" font-size="11">Síťové napájení</text>
+  
+  <text x="670" y="200" fill="#0e7c7b" font-size="11">L (fáze)</text>
+  <circle cx="660" cy="210" r="5" fill="#0e7c7b"/>
+  <text x="670" y="230" fill="#64b5f6" font-size="11">N (nula)</text>
+  <circle cx="660" cy="240" r="5" fill="#64b5f6"/>
+  
+  <!-- 230V Output (Socket) -->
+  <rect x="650" y="320" width="200" height="140" rx="5" fill="#2d5016" stroke="#6cc24a" stroke-width="2"/>
+  <text x="750" y="350" text-anchor="middle" fill="#6cc24a" font-size="14" font-weight="bold">🔌 ZÁSUVKA</text>
+  <text x="750" y="370" text-anchor="middle" fill="#858585" font-size="11">Řízený výstup 230V</text>
+  
+  <!-- Socket visualization -->
+  <circle cx="720" cy="410" r="8" fill="none" stroke="#6cc24a" stroke-width="2"/>
+  <circle cx="780" cy="410" r="8" fill="none" stroke="#6cc24a" stroke-width="2"/>
+  <rect x="740" y="430" width="20" height="15" fill="none" stroke="#6cc24a" stroke-width="2"/>
+  
+  <!-- Wiring: GPIO17 to SSR + -->
+  <path d="M 270 220 L 320 220 L 320 290 L 395 290" fill="none" stroke="#ffc107" stroke-width="2"/>
+  <text x="310" y="255" fill="#ffc107" font-size="10">Signal</text>
+  
+  <!-- Wiring: GND to SSR - -->
+  <path d="M 270 295 L 340 295 L 340 320 L 395 320" fill="none" stroke="#858585" stroke-width="2"/>
+  <text x="310" y="340" fill="#858585" font-size="10">GND</text>
+  
+  <!-- Wiring: 230V L to SSR LINE -->
+  <path d="M 655 210 L 620 210 L 620 305 L 545 305" fill="none" stroke="#0e7c7b" stroke-width="3"/>
+  <text x="580" y="260" fill="#0e7c7b" font-size="10">L (fáze)</text>
+  
+  <!-- Wiring: SSR LOAD to Socket L -->
+  <path d="M 545 275 L 600 275 L 600 400 L 650 400" fill="none" stroke="#ffc107" stroke-width="3"/>
+  <text x="580" y="350" fill="#ffc107" font-size="10">Spínaná fáze</text>
+  
+  <!-- Wiring: 230V N direct to Socket -->
+  <path d="M 655 240 L 610 240 L 610 420 L 650 420" fill="none" stroke="#64b5f6" stroke-width="3"/>
+  <text x="615" y="480" fill="#64b5f6" font-size="10">N (přímo)</text>
+  
+  <!-- Warning Box -->
+  <rect x="50" y="480" width="800" height="140" rx="5" fill="#5c1a1a" stroke="#f44336" stroke-width="2"/>
+  <text x="450" y="510" text-anchor="middle" fill="#f44336" font-size="16" font-weight="bold">
+    ⚠️ VAROVÁNÍ - VYSOKÉ NAPĚTÍ 230V ⚠️
+  </text>
+  <text x="450" y="535" text-anchor="middle" fill="#cccccc" font-size="12">
+    Práci s 230V smí provádět pouze osoba s elektrotechnickou kvalifikací!
+  </text>
+  <text x="450" y="555" text-anchor="middle" fill="#cccccc" font-size="12">
+    Před prací vždy odpojte napájení. Používejte vhodný SSR s dostatečnou proudovou rezervou.
+  </text>
+  <text x="450" y="580" text-anchor="middle" fill="#858585" font-size="11">
+    Doporučené SSR: Fotek SSR-25DA nebo ekvivalent (3-32V DC vstup, 24-380V AC výstup, min. 10A)
+  </text>
+  <text x="450" y="600" text-anchor="middle" fill="#858585" font-size="11">
+    GPIO17 = Pin 11 na 40-pin headeru Raspberry Pi
+  </text>
+  
+  <!-- Legend -->
+  <rect x="50" y="420" width="200" height="50" rx="3" fill="#252526" stroke="#3c3c3c"/>
+  <text x="60" y="440" fill="#858585" font-size="10">Legenda:</text>
+  <line x1="60" y1="455" x2="80" y2="455" stroke="#ffc107" stroke-width="2"/>
+  <text x="85" y="458" fill="#858585" font-size="9">Signal/Spínaná fáze</text>
+  <line x1="150" y1="455" x2="170" y2="455" stroke="#0e7c7b" stroke-width="2"/>
+  <text x="175" y="458" fill="#858585" font-size="9">Fáze (L)</text>
+  
+  <!-- Copyright -->
+  <text x="850" y="640" text-anchor="end" fill="#858585" font-size="10">© 2026 MaraXa - Watchdog v3.0</text>
+</svg>

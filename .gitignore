@@ -1,0 +1,41 @@
+# Configuration files (user specific)
+config.json
+users.json
+
+# Logs and data
+log/
+logs/
+*.log
+
+# Statistics
+stats/
+*.stats
+
+# Backups
+backups/
+
+# SSL certificates
+ssl/
+*.pem
+*.crt
+*.key
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*$py.class
+.Python
+
+# Commands (temporary)
+commands/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -1,0 +1,228 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" style="font-family: Arial, sans-serif;">
+  <!-- Background -->
+  <rect width="1200" height="800" fill="#1e1e1e"/>
+  
+  <!-- Title -->
+  <text x="600" y="40" text-anchor="middle" fill="#0e7c7b" font-size="24" font-weight="bold">
+    Watchdog - Full Mode (4x SSR)
+  </text>
+  <text x="600" y="65" text-anchor="middle" fill="#858585" font-size="14">
+    Schéma zapojení Raspberry Pi + 4x SSR relé + 4x 230V zásuvka
+  </text>
+  
+  <!-- Raspberry Pi Box -->
+  <rect x="30" y="100" width="200" height="350" rx="10" fill="#2d5016" stroke="#6cc24a" stroke-width="2"/>
+  <text x="130" y="130" text-anchor="middle" fill="#6cc24a" font-size="14" font-weight="bold">Raspberry Pi</text>
+  
+  <!-- GPIO Header -->
+  <rect x="200" y="160" width="30" height="250" fill="#252526" stroke="#3c3c3c"/>
+  <text x="215" y="155" text-anchor="middle" fill="#858585" font-size="9">GPIO</text>
+  
+  <!-- GPIO Pins -->
+  <g fill="#858585" font-size="9">
+    <!-- 3.3V -->
+    <text x="195" y="180" text-anchor="end" fill="#dc3545">3.3V (1)</text>
+    <circle cx="215" cy="175" r="3" fill="#dc3545"/>
+    
+    <!-- GPIO17 -->
+    <text x="195" y="210" text-anchor="end" fill="#ffc107">GPIO17 (11)</text>
+    <circle cx="215" cy="205" r="3" fill="#ffc107"/>
+    
+    <!-- GPIO18 -->
+    <text x="195" y="240" text-anchor="end" fill="#28a745">GPIO18 (12)</text>
+    <circle cx="215" cy="235" r="3" fill="#28a745"/>
+    
+    <!-- GPIO19 -->
+    <text x="195" y="270" text-anchor="end" fill="#17a2b8">GPIO19 (35)</text>
+    <circle cx="215" cy="265" r="3" fill="#17a2b8"/>
+    
+    <!-- GPIO20 -->
+    <text x="195" y="300" text-anchor="end" fill="#e83e8c">GPIO20 (38)</text>
+    <circle cx="215" cy="295" r="3" fill="#e83e8c"/>
+    
+    <!-- GND -->
+    <text x="195" y="370" text-anchor="end">GND (6,9,14...)</text>
+    <circle cx="215" cy="365" r="3" fill="#333" stroke="#858585"/>
+  </g>
+  
+  <!-- SSR Relays -->
+  <!-- SSR 1 -->
+  <rect x="320" y="110" width="120" height="100" rx="3" fill="#1a3a5c" stroke="#ffc107" stroke-width="2"/>
+  <text x="380" y="135" text-anchor="middle" fill="#ffc107" font-size="11" font-weight="bold">SSR 1</text>
+  <text x="380" y="150" text-anchor="middle" fill="#858585" font-size="9">GPIO17</text>
+  <circle cx="330" cy="175" r="4" fill="#dc3545"/>
+  <text x="340" y="178" fill="#858585" font-size="8">+</text>
+  <circle cx="330" cy="195" r="4" fill="#333" stroke="#858585"/>
+  <text x="340" y="198" fill="#858585" font-size="8">-</text>
+  <circle cx="430" cy="175" r="4" fill="#ffc107"/>
+  <text x="420" y="178" fill="#858585" font-size="8" text-anchor="end">L</text>
+  <circle cx="430" cy="195" r="4" fill="#0e7c7b"/>
+  <text x="420" y="198" fill="#858585" font-size="8" text-anchor="end">N</text>
+  
+  <!-- SSR 2 -->
+  <rect x="320" y="230" width="120" height="100" rx="3" fill="#1a3a5c" stroke="#28a745" stroke-width="2"/>
+  <text x="380" y="255" text-anchor="middle" fill="#28a745" font-size="11" font-weight="bold">SSR 2</text>
+  <text x="380" y="270" text-anchor="middle" fill="#858585" font-size="9">GPIO18</text>
+  <circle cx="330" cy="295" r="4" fill="#dc3545"/>
+  <circle cx="330" cy="315" r="4" fill="#333" stroke="#858585"/>
+  <circle cx="430" cy="295" r="4" fill="#28a745"/>
+  <circle cx="430" cy="315" r="4" fill="#0e7c7b"/>
+  
+  <!-- SSR 3 -->
+  <rect x="320" y="350" width="120" height="100" rx="3" fill="#1a3a5c" stroke="#17a2b8" stroke-width="2"/>
+  <text x="380" y="375" text-anchor="middle" fill="#17a2b8" font-size="11" font-weight="bold">SSR 3</text>
+  <text x="380" y="390" text-anchor="middle" fill="#858585" font-size="9">GPIO19</text>
+  <circle cx="330" cy="415" r="4" fill="#dc3545"/>
+  <circle cx="330" cy="435" r="4" fill="#333" stroke="#858585"/>
+  <circle cx="430" cy="415" r="4" fill="#17a2b8"/>
+  <circle cx="430" cy="435" r="4" fill="#0e7c7b"/>
+  
+  <!-- SSR 4 -->
+  <rect x="320" y="470" width="120" height="100" rx="3" fill="#1a3a5c" stroke="#e83e8c" stroke-width="2"/>
+  <text x="380" y="495" text-anchor="middle" fill="#e83e8c" font-size="11" font-weight="bold">SSR 4</text>
+  <text x="380" y="510" text-anchor="middle" fill="#858585" font-size="9">GPIO20</text>
+  <circle cx="330" cy="535" r="4" fill="#dc3545"/>
+  <circle cx="330" cy="555" r="4" fill="#333" stroke="#858585"/>
+  <circle cx="430" cy="535" r="4" fill="#e83e8c"/>
+  <circle cx="430" cy="555" r="4" fill="#0e7c7b"/>
+  
+  <!-- Wiring GPIO to SSR -->
+  <path d="M 230 205 L 280 205 L 280 175 L 326 175" fill="none" stroke="#ffc107" stroke-width="1.5"/>
+  <path d="M 230 235 L 290 235 L 290 295 L 326 295" fill="none" stroke="#28a745" stroke-width="1.5"/>
+  <path d="M 230 265 L 300 265 L 300 415 L 326 415" fill="none" stroke="#17a2b8" stroke-width="1.5"/>
+  <path d="M 230 295 L 310 295 L 310 535 L 326 535" fill="none" stroke="#e83e8c" stroke-width="1.5"/>
+  
+  <!-- GND bus -->
+  <path d="M 230 365 L 270 365 L 270 555 L 326 555" fill="none" stroke="#858585" stroke-width="1.5"/>
+  <path d="M 270 365 L 270 195 L 326 195" fill="none" stroke="#858585" stroke-width="1.5"/>
+  <path d="M 270 315 L 326 315" fill="none" stroke="#858585" stroke-width="1.5"/>
+  <path d="M 270 435 L 326 435" fill="none" stroke="#858585" stroke-width="1.5"/>
+  
+  <!-- 3.3V bus (optional - for active high SSR) -->
+  <path d="M 230 175 L 260 175 L 260 535 L 326 535" fill="none" stroke="#dc3545" stroke-width="1" stroke-dasharray="3,2"/>
+  
+  <!-- 230V Main Input -->
+  <rect x="520" y="100" width="180" height="80" rx="5" fill="#5c1a1a" stroke="#f44336" stroke-width="2"/>
+  <text x="610" y="125" text-anchor="middle" fill="#f44336" font-size="14" font-weight="bold">⚡ 230V AC INPUT</text>
+  <text x="610" y="145" text-anchor="middle" fill="#858585" font-size="10">Hlavní přívod</text>
+  <circle cx="540" cy="165" r="5" fill="#0e7c7b"/>
+  <text x="550" y="168" fill="#858585" font-size="9">L</text>
+  <circle cx="680" cy="165" r="5" fill="#64b5f6"/>
+  <text x="670" y="168" fill="#858585" font-size="9" text-anchor="end">N</text>
+  
+  <!-- L bus from main -->
+  <path d="M 540 170 L 540 560 L 500 560" fill="none" stroke="#0e7c7b" stroke-width="2"/>
+  <path d="M 500 175 L 540 175" fill="none" stroke="#0e7c7b" stroke-width="2"/>
+  <path d="M 500 195 L 540 195" fill="none" stroke="#0e7c7b" stroke-width="2"/>
+  <path d="M 500 315 L 540 315" fill="none" stroke="#0e7c7b" stroke-width="2"/>
+  <path d="M 500 435 L 540 435" fill="none" stroke="#0e7c7b" stroke-width="2"/>
+  <path d="M 500 555 L 540 555" fill="none" stroke="#0e7c7b" stroke-width="2"/>
+  
+  <!-- Connections SSR to outlets -->
+  <path d="M 434 175 L 560 175" fill="none" stroke="#ffc107" stroke-width="2"/>
+  <path d="M 434 295 L 560 295" fill="none" stroke="#28a745" stroke-width="2"/>
+  <path d="M 434 415 L 560 415" fill="none" stroke="#17a2b8" stroke-width="2"/>
+  <path d="M 434 535 L 560 535" fill="none" stroke="#e83e8c" stroke-width="2"/>
+  
+  <!-- N bus direct -->
+  <path d="M 680 170 L 680 560" fill="none" stroke="#64b5f6" stroke-width="2"/>
+  
+  <!-- Outlets -->
+  <!-- Outlet 1 -->
+  <rect x="560" y="200" width="150" height="80" rx="5" fill="#2d5016" stroke="#6cc24a" stroke-width="2"/>
+  <text x="635" y="225" text-anchor="middle" fill="#6cc24a" font-size="12" font-weight="bold">🔌 Zásuvka 1</text>
+  <circle cx="605" cy="255" r="6" fill="none" stroke="#6cc24a" stroke-width="1.5"/>
+  <circle cx="665" cy="255" r="6" fill="none" stroke="#6cc24a" stroke-width="1.5"/>
+  <path d="M 560 175 L 560 240 L 599 240" fill="none" stroke="#ffc107" stroke-width="2"/>
+  <path d="M 680 240 L 671 240" fill="none" stroke="#64b5f6" stroke-width="2"/>
+  
+  <!-- Outlet 2 -->
+  <rect x="560" y="320" width="150" height="80" rx="5" fill="#2d5016" stroke="#6cc24a" stroke-width="2"/>
+  <text x="635" y="345" text-anchor="middle" fill="#6cc24a" font-size="12" font-weight="bold">🔌 Zásuvka 2</text>
+  <circle cx="605" cy="375" r="6" fill="none" stroke="#6cc24a" stroke-width="1.5"/>
+  <circle cx="665" cy="375" r="6" fill="none" stroke="#6cc24a" stroke-width="1.5"/>
+  <path d="M 560 295 L 560 360 L 599 360" fill="none" stroke="#28a745" stroke-width="2"/>
+  <path d="M 680 360 L 671 360" fill="none" stroke="#64b5f6" stroke-width="2"/>
+  
+  <!-- Outlet 3 -->
+  <rect x="560" y="440" width="150" height="80" rx="5" fill="#2d5016" stroke="#6cc24a" stroke-width="2"/>
+  <text x="635" y="465" text-anchor="middle" fill="#6cc24a" font-size="12" font-weight="bold">🔌 Zásuvka 3</text>
+  <circle cx="605" cy="495" r="6" fill="none" stroke="#6cc24a" stroke-width="1.5"/>
+  <circle cx="665" cy="495" r="6" fill="none" stroke="#6cc24a" stroke-width="1.5"/>
+  <path d="M 560 415 L 560 480 L 599 480" fill="none" stroke="#17a2b8" stroke-width="2"/>
+  <path d="M 680 480 L 671 480" fill="none" stroke="#64b5f6" stroke-width="2"/>
+  
+  <!-- Outlet 4 -->
+  <rect x="560" y="560" width="150" height="80" rx="5" fill="#2d5016" stroke="#6cc24a" stroke-width="2"/>
+  <text x="635" y="585" text-anchor="middle" fill="#6cc24a" font-size="12" font-weight="bold">🔌 Zásuvka 4</text>
+  <circle cx="605" cy="615" r="6" fill="none" stroke="#6cc24a" stroke-width="1.5"/>
+  <circle cx="665" cy="615" r="6" fill="none" stroke="#6cc24a" stroke-width="1.5"/>
+  <path d="M 560 535 L 560 600 L 599 600" fill="none" stroke="#e83e8c" stroke-width="2"/>
+  <path d="M 680 600 L 671 600" fill="none" stroke="#64b5f6" stroke-width="2"/>
+  
+  <!-- GPIO Pin Table -->
+  <rect x="780" y="100" width="380" height="200" rx="5" fill="#252526" stroke="#3c3c3c"/>
+  <text x="970" y="130" text-anchor="middle" fill="#0e7c7b" font-size="14" font-weight="bold">Přiřazení GPIO pinů</text>
+  
+  <g fill="#cccccc" font-size="11">
+    <text x="800" y="160">Outlet</text>
+    <text x="880" y="160">GPIO</text>
+    <text x="950" y="160">Pin #</text>
+    <text x="1020" y="160">Funkce</text>
+    
+    <line x1="790" y1="170" x2="1150" y2="170" stroke="#3c3c3c"/>
+    
+    <text x="800" y="190" fill="#ffc107">Zásuvka 1</text>
+    <text x="880" y="190">GPIO17</text>
+    <text x="950" y="190">11</text>
+    <text x="1020" y="190">External Network</text>
+    
+    <text x="800" y="215" fill="#28a745">Zásuvka 2</text>
+    <text x="880" y="215">GPIO18</text>
+    <text x="950" y="215">12</text>
+    <text x="1020" y="215">Internal Services</text>
+    
+    <text x="800" y="240" fill="#17a2b8">Zásuvka 3</text>
+    <text x="880" y="240">GPIO19</text>
+    <text x="950" y="240">35</text>
+    <text x="1020" y="240">Custom Group 1</text>
+    
+    <text x="800" y="265" fill="#e83e8c">Zásuvka 4</text>
+    <text x="880" y="265">GPIO20</text>
+    <text x="950" y="265">38</text>
+    <text x="1020" y="265">Custom Group 2</text>
+    
+    <line x1="790" y1="280" x2="1150" y2="280" stroke="#3c3c3c"/>
+    <text x="800" y="295" fill="#858585">GND</text>
+    <text x="880" y="295" fill="#858585">-</text>
+    <text x="950" y="295" fill="#858585">6,9,14,20,25...</text>
+    <text x="1020" y="295" fill="#858585">Společná zem</text>
+  </g>
+  
+  <!-- Bill of Materials -->
+  <rect x="780" y="320" width="380" height="180" rx="5" fill="#252526" stroke="#3c3c3c"/>
+  <text x="970" y="350" text-anchor="middle" fill="#0e7c7b" font-size="14" font-weight="bold">Bill of Materials (BOM)</text>
+  
+  <g fill="#cccccc" font-size="10">
+    <text x="800" y="375">• 1x Raspberry Pi (any model with GPIO)</text>
+    <text x="800" y="395">• 4x SSR relé (Fotek SSR-25DA nebo ekvivalent)</text>
+    <text x="800" y="415">• 4x Zásuvka 230V (IP20 nebo vyšší)</text>
+    <text x="800" y="435">• 1x Rozvodná krabice (min. 200x150x100mm)</text>
+    <text x="800" y="455">• Vodiče: 1.5mm² pro 230V, dupont pro GPIO</text>
+    <text x="800" y="475">• Svorkovnice, DIN lišta (volitelně)</text>
+    <text x="800" y="495">• microSD karta min. 8GB pro Raspberry Pi OS</text>
+  </g>
+  
+  <!-- Warning -->
+  <rect x="780" y="520" width="380" height="120" rx="5" fill="#5c1a1a" stroke="#f44336" stroke-width="2"/>
+  <text x="970" y="550" text-anchor="middle" fill="#f44336" font-size="14" font-weight="bold">⚠️ BEZPEČNOSTNÍ UPOZORNĚNÍ</text>
+  <g fill="#cccccc" font-size="10">
+    <text x="800" y="575">• Práci s 230V smí provádět pouze kvalifikovaná osoba</text>
+    <text x="800" y="595">• Před prací VŽDY odpojte hlavní přívod</text>
+    <text x="800" y="615">• SSR musí mít rezervu min. 2x max. proud zátěže</text>
+    <text x="800" y="635">• Zajistěte dostatečné chlazení SSR při vyšších zátěžích</text>
+  </g>
+  
+  <!-- Copyright -->
+  <text x="1150" y="790" text-anchor="end" fill="#858585" font-size="10">© 2026 MaraXa - Watchdog v3.0</text>
+</svg>

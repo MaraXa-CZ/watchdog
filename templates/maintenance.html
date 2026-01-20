@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Údržba' if language == 'cs' else 'Maintenance' }} - {{ t('app.name') }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ 'Údržba systému' if language == 'cs' else 'System Maintenance' }}</h1>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <h3>{{ 'Stav služeb' if language == 'cs' else 'Service Status' }}</h3>
+        <table>
+            <tr>
+                <td>Watchdog Daemon</td>
+                <td style="text-align: right;">
+                    {% if services.get('watchdog') %}
+                    <span class="status-badge status-online">● {{ 'Běží' if language == 'cs' else 'Running' }}</span>
+                    {% else %}
+                    <span class="status-badge status-offline">● {{ 'Zastaveno' if language == 'cs' else 'Stopped' }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td>Web Interface</td>
+                <td style="text-align: right;">
+                    {% if services.get('watchdog-web') %}
+                    <span class="status-badge status-online">● {{ 'Běží' if language == 'cs' else 'Running' }}</span>
+                    {% else %}
+                    <span class="status-badge status-offline">● {{ 'Zastaveno' if language == 'cs' else 'Stopped' }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+        </table>
+        
+        <div style="margin-top: 15px;">
+            <form method="post" action="/maintenance/restart-services" style="display: inline;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-primary" 
+                        onclick="return confirm('{{ 'Restartovat služby Watchdog?' if language == 'cs' else 'Restart Watchdog services?' }}')">
+                    🔄 {{ 'Restartovat služby' if language == 'cs' else 'Restart Services' }}
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h3>{{ 'Systémové informace' if language == 'cs' else 'System Information' }}</h3>
+        <table>
+            <tr>
+                <td>{{ 'Uptime' if language == 'en' else 'Doba běhu' }}</td>
+                <td style="text-align: right;"><strong>{{ system_info.uptime }}</strong></td>
+            </tr>
+            <tr>
+                <td>{{ 'Paměť' if language == 'cs' else 'Memory' }}</td>
+                <td style="text-align: right;"><strong>{{ system_info.memory }}</strong></td>
+            </tr>
+            <tr>
+                <td>{{ 'Disk' if language == 'en' else 'Disk' }}</td>
+                <td style="text-align: right;"><strong>{{ system_info.disk }}</strong></td>
+            </tr>
+            <tr>
+                <td>{{ 'Teplota CPU' if language == 'cs' else 'CPU Temperature' }}</td>
+                <td style="text-align: right;"><strong>{{ system_info.temperature }}</strong></td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+    <h3>⚠️ {{ 'Systémové operace' if language == 'cs' else 'System Operations' }}</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">
+        {{ 'Tyto operace ovlivní celý systém. Používejte opatrně.' if language == 'cs' else 'These operations affect the entire system. Use with caution.' }}
+    </p>
+    
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <form method="post" action="/maintenance/restart-system">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-restart" style="padding: 15px 25px;"
+                    onclick="return confirm('{{ 'OPRAVDU restartovat celý systém? Všechna připojení budou přerušena.' if language == 'cs' else 'REALLY restart the entire system? All connections will be interrupted.' }}')">
+                🔁 {{ 'Restartovat systém' if language == 'cs' else 'Restart System' }}
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+    <h3>{{ 'Nápověda' if language == 'cs' else 'Help' }}</h3>
+    <div style="font-size: 0.9em; color: var(--text-secondary);">
+        <p><strong>{{ 'Restart služeb' if language == 'cs' else 'Restart Services' }}:</strong> 
+        {{ 'Restartuje pouze Watchdog daemon a web rozhraní. Systém zůstane běžet.' if language == 'cs' else 'Restarts only Watchdog daemon and web interface. System keeps running.' }}</p>
+        
+        <p style="margin-top: 10px;"><strong>{{ 'Restart systému' if language == 'cs' else 'Restart System' }}:</strong> 
+        {{ 'Kompletní restart Raspberry Pi. Použijte při problémech s GPIO nebo po aktualizaci systému.' if language == 'cs' else 'Complete Raspberry Pi restart. Use for GPIO issues or after system updates.' }}</p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('nav.logs') }} - Watchdog{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ t('nav.logs') }}</h1>
+
+<div class="log-controls" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center;">
+    <button class="btn btn-secondary" onclick="location.reload()">🔄 Refresh</button>
+    
+    <!-- Auto-refresh controls -->
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border-left: 1px solid var(--border-color);">
+        <input type="checkbox" id="autorefresh" {% if autorefresh %}checked{% endif %}>
+        <label for="autorefresh" style="cursor: pointer;">{{ 'Auto' if language == 'cs' else 'Auto' }}</label>
+        <select id="refresh-interval" style="padding: 5px;">
+            <option value="1" {% if refresh_interval == 1 %}selected{% endif %}>1s</option>
+            <option value="5" {% if refresh_interval == 5 or not refresh_interval %}selected{% endif %}>5s</option>
+            <option value="10" {% if refresh_interval == 10 %}selected{% endif %}>10s</option>
+            <option value="30" {% if refresh_interval == 30 %}selected{% endif %}>30s</option>
+            <option value="60" {% if refresh_interval == 60 %}selected{% endif %}>60s</option>
+        </select>
+    </div>
+    
+    <!-- Filter controls -->
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border-left: 1px solid var(--border-color);">
+        <input type="checkbox" id="errors-only" {% if errors_only %}checked{% endif %}>
+        <label for="errors-only" style="cursor: pointer;">{{ 'Jen chyby' if language == 'cs' else 'Errors only' }}</label>
+    </div>
+    
+    <div style="border-left: 1px solid var(--border-color); padding-left: 10px;">
+        <button class="btn btn-secondary" onclick="goToPage({{ current_page - 1 }})" {% if current_page <= 0 %}disabled{% endif %}>
+            ← {{ 'Novější' if language == 'cs' else 'Newer' }}
+        </button>
+        
+        <span style="color: var(--text-secondary); padding: 0 8px;">
+            {{ current_page + 1 }} / {{ total_pages }}
+        </span>
+        
+        <button class="btn btn-secondary" onclick="goToPage({{ current_page + 1 }})" {% if current_page >= total_pages - 1 %}disabled{% endif %}>
+            {{ 'Starší' if language == 'cs' else 'Older' }} →
+        </button>
+    </div>
+    
+    {% if has_permission('manage_system') %}
+    <div style="margin-left: auto;">
+        <button class="btn btn-power-off" onclick="document.getElementById('delete-modal').style.display='flex'">
+            🗑️ {{ 'Smazat' if language == 'cs' else 'Delete' }}
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<div class="section">
+    <pre id="log-content" style="max-height: 60vh; overflow-y: auto;">{% for line in formatted_lines %}<div class="log-line {{ line.class }}">{{ line.text }}</div>{% else %}<div style="color: var(--text-secondary); text-align: center;">{{ 'Žádné logy k zobrazení' if language == 'cs' else 'No logs to display' }}</div>{% endfor %}</pre>
+</div>
+
+<div class="section">
+    <h3>{{ 'Legenda' if language == 'cs' else 'Legend' }}</h3>
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.9em;">
+        <span><span class="success">■</span> INIT / CONFIG / MANUAL / OK</span>
+        <span><span class="fail">■</span> FAIL / Unreachable</span>
+        <span><span class="reset">■</span> RESET / Power</span>
+        <span><span class="error">■</span> ERROR</span>
+        <span><span style="color: #ff9800;">■</span> WARNING</span>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+{% if has_permission('manage_system') %}
+<div id="delete-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: var(--card-bg); padding: 30px; border-radius: 10px; max-width: 400px; width: 90%;">
+        <h3 style="margin-top: 0;">🗑️ {{ 'Smazat logy' if language == 'cs' else 'Delete Logs' }}</h3>
+        <form method="post" action="/logs/delete">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="form-group">
+                <label>{{ 'Vyberte typ' if language == 'cs' else 'Select type' }}:</label>
+                <select name="log_type" style="width: 100%; padding: 10px; margin-top: 5px;">
+                    <option value="all">{{ 'Všechny logy' if language == 'cs' else 'All logs' }}</option>
+                    <option value="watchdog">watchdog.log</option>
+                    <option value="audit">audit.log</option>
+                    <option value="old">{{ 'Rotované' if language == 'cs' else 'Rotated' }}</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="btn btn-power-off" onclick="return confirm('{{ 'Opravdu?' if language == 'cs' else 'Sure?' }}')">
+                    {{ 'Smazat' if language == 'cs' else 'Delete' }}
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('delete-modal').style.display='none'">
+                    {{ 'Zrušit' if language == 'cs' else 'Cancel' }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let refreshTimer = null;
+const currentPage = {{ current_page }};
+
+function goToPage(page) {
+    const errorsOnly = document.getElementById('errors-only').checked;
+    window.location.href = `/logs?page=${page}&errors_only=${errorsOnly ? 1 : 0}`;
+}
+
+function startAutoRefresh() {
+    stopAutoRefresh();
+    const interval = parseInt(document.getElementById('refresh-interval').value) * 1000;
+    refreshTimer = setInterval(() => {
+        const errorsOnly = document.getElementById('errors-only').checked;
+        window.location.href = `/logs?page=${currentPage}&errors_only=${errorsOnly ? 1 : 0}&autorefresh=1`;
+    }, interval);
+}
+
+function stopAutoRefresh() {
+    if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+    }
+}
+
+document.getElementById('autorefresh').addEventListener('change', function() {
+    if (this.checked) {
+        startAutoRefresh();
+    } else {
+        stopAutoRefresh();
+    }
+});
+
+document.getElementById('refresh-interval').addEventListener('change', function() {
+    if (document.getElementById('autorefresh').checked) {
+        startAutoRefresh();
+    }
+});
+
+document.getElementById('errors-only').addEventListener('change', function() {
+    goToPage(0);
+});
+
+// Start auto-refresh if enabled
+if (document.getElementById('autorefresh').checked) {
+    startAutoRefresh();
+}
+</script>
+{% endblock %}

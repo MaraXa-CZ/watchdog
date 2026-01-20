@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+    <title>{% block title %}{{ t('app.name') }}{% endblock %}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Watchdog Network Monitoring System">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') if url_for else '/static/css/style.css' }}">
+    <style>
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-tertiary: #2d2d2d;
+            --border-color: #3c3c3c;
+            --text-primary: #cccccc;
+            --text-secondary: #858585;
+            --accent-color: #0e7c7b;
+            --accent-hover: #2a2d2e;
+            --button-on: #28a745;
+            --button-off: #dc3545;
+            --button-restart: #ffc107;
+            --status-online-bg: #2d5016;
+            --status-online-text: #6cc24a;
+            --status-online-border: #3a6b1e;
+            --status-offline-bg: #5c1a1a;
+            --status-offline-text: #f44336;
+            --status-offline-border: #7a2020;
+            --card-hover-shadow: rgba(0, 0, 0, 0.3);
+            --log-fail: #ff9800;
+            --log-reset: #f44336;
+            --log-error: #c62828;
+            --log-success: #4caf50;
+        }
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-tertiary: #e8e8e8;
+            --border-color: #d0d0d0;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --accent-hover: #e3f2fd;
+            --status-online-bg: #e8f5e9;
+            --status-online-text: #2e7d32;
+            --status-online-border: #4caf50;
+            --status-offline-bg: #ffebee;
+            --status-offline-text: #c62828;
+            --status-offline-border: #ef5350;
+            --card-hover-shadow: rgba(0, 0, 0, 0.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            transition: background 0.3s, color 0.3s;
+        }
+        .sidebar {
+            width: 250px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s;
+        }
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sidebar-header h1 { font-size: 1.4em; color: var(--accent-color); }
+        .header-controls { display: flex; gap: 10px; align-items: center; }
+        .theme-toggle, .lang-toggle {
+            cursor: pointer;
+            font-size: 1.2em;
+            user-select: none;
+            transition: transform 0.3s;
+            opacity: 0.7;
+        }
+        .theme-toggle:hover, .lang-toggle:hover { transform: scale(1.1); opacity: 1; }
+        .sidebar-user {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9em;
+        }
+        .user-name { font-weight: bold; color: var(--text-primary); }
+        .user-role { color: var(--text-secondary); font-size: 0.85em; }
+        .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; }
+        .nav-section { padding: 5px 20px; color: var(--text-secondary); font-size: 0.75em; text-transform: uppercase; margin-top: 10px; }
+        .nav-item {
+            display: block;
+            padding: 10px 20px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: background 0.2s;
+            font-size: 0.95em;
+        }
+        .nav-item:hover { background: var(--accent-hover); }
+        .nav-item.active { background: var(--accent-hover); border-left: 3px solid var(--accent-color); }
+        .nav-item i { margin-right: 10px; width: 20px; display: inline-block; }
+        .sidebar-footer {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+        }
+        .logout-btn {
+            width: 100%;
+            background: #c41e3a;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 3px;
+            font-family: inherit;
+            margin-bottom: 10px;
+        }
+        .logout-btn:hover { background: #d63447; }
+        .version-info { font-size: 0.8em; color: var(--text-secondary); }
+        
+        /* Theme toggle */
+        .theme-btn {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.2s;
+        }
+        .theme-btn:hover { background: var(--accent-color); }
+        .theme-btn.active { background: var(--accent-color); border-color: var(--accent-color); }
+        
+        /* Light theme */
+        [data-theme="light"] {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --bg-sidebar: #2c3e50;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border-color: #ddd;
+            --card-bg: #ffffff;
+        }
+        .main-content { flex: 1; overflow-y: auto; padding: 25px; }
+        .page-title {
+            font-size: 1.4em;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .card {
+            background: var(--bg-tertiary);
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px var(--card-hover-shadow); }
+        .card h3 {
+            margin-bottom: 15px;
+            color: var(--accent-color);
+            font-size: 1.1em;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        .section {
+            background: var(--bg-tertiary);
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+        .section h3 { margin-bottom: 15px; color: var(--accent-color); }
+        .form-group { margin-bottom: 15px; }
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        label { display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 0.9em; }
+        input[type="text"], input[type="number"], input[type="password"], input[type="email"],
+        select, textarea {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 3px;
+            font-family: inherit;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-color); }
+        .help { font-size: 0.85em; color: var(--text-secondary); margin-top: 3px; }
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #0e639c; color: white; }
+        .btn-primary:hover { background: #1177bb; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #7d8a93; }
+        .btn-power-on { background: var(--button-on); color: white; }
+        .btn-power-off { background: var(--button-off); color: white; }
+        .btn-restart { background: var(--button-restart); color: #1e1e1e; font-weight: bold; }
+        .control-buttons { display: flex; gap: 5px; flex-wrap: wrap; }
+        .control-buttons .btn { flex: 1; min-width: 60px; text-transform: uppercase; font-size: 0.85em; }
+        .alert {
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .alert-success { background: var(--status-online-bg); color: var(--status-online-text); border: 1px solid var(--status-online-border); }
+        .alert-error { background: var(--status-offline-bg); color: var(--status-offline-text); border: 1px solid var(--status-offline-border); }
+        .alert-info { background: #1a3a5c; color: #64b5f6; border: 1px solid #1e4976; }
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-online { background: var(--status-online-bg); color: var(--status-online-text); }
+        .status-offline { background: var(--status-offline-bg); color: var(--status-offline-text); }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { background: var(--bg-secondary); color: var(--text-secondary); font-weight: 600; font-size: 0.9em; }
+        tr:hover { background: var(--bg-secondary); }
+        pre {
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        .log-line { padding: 2px 0; }
+        .fail { color: var(--log-fail); }
+        .reset { color: var(--log-reset); font-weight: bold; }
+        .error { color: var(--log-error); }
+        .success { color: var(--log-success); }
+        .checkbox-label { display: flex; align-items: center; cursor: pointer; }
+        .checkbox-label input { width: auto; margin-right: 8px; }
+        .lang-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .lang-dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            min-width: 120px;
+            z-index: 1000;
+        }
+        .lang-dropdown:hover .lang-dropdown-content { display: block; }
+        .lang-dropdown-content a {
+            display: block;
+            padding: 8px 12px;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        .lang-dropdown-content a:hover { background: var(--accent-hover); }
+        @media (max-width: 768px) {
+            .sidebar { width: 60px; }
+            .sidebar-header h1, .nav-item span, .sidebar-user, .version-info, .nav-section { display: none; }
+            .nav-item { padding: 15px; text-align: center; }
+            .nav-item i { margin: 0; }
+            .main-content { padding: 15px; }
+        }
+        input[name="_csrf_token"] { display: none; }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>⚡ {{ t('app.name') }}</h1>
+            <div class="header-controls">
+                <div class="lang-dropdown">
+                    <span class="lang-toggle">{{ languages[language].flag }}</span>
+                    <div class="lang-dropdown-content">
+                        {% for code, lang_info in languages.items() %}
+                        <a href="/language/{{ code }}">{{ lang_info.flag }} {{ lang_info.name }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+                <span class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</span>
+            </div>
+        </div>
+        
+        {% if user %}
+        <div class="sidebar-user">
+            <div class="user-name">{{ user.username }}</div>
+            <div class="user-role">{{ t('roles.' + user.role) }}</div>
+        </div>
+        {% endif %}
+        
+        <nav class="sidebar-nav">
+            <div class="nav-section">{{ t('nav.dashboard') if language == 'cs' else 'Main' }}</div>
+            <a href="/dashboard" class="nav-item {% if request.path == '/dashboard' %}active{% endif %}">
+                <i>🏠</i><span>{{ t('nav.dashboard') }}</span>
+            </a>
+            
+            {% if has_permission('view_stats') %}
+            <a href="/stats" class="nav-item {% if '/stats' in request.path %}active{% endif %}">
+                <i>📊</i><span>{{ t('nav.stats') }}</span>
+            </a>
+            {% endif %}
+            
+            {% if has_permission('view_logs') %}
+            <a href="/logs" class="nav-item {% if request.path == '/logs' %}active{% endif %}">
+                <i>📝</i><span>{{ t('nav.logs') }}</span>
+            </a>
+            {% endif %}
+            
+            {% if has_permission('manage_groups') %}
+            <div class="nav-section">{{ 'Konfigurace' if language == 'cs' else 'Configuration' }}</div>
+            <a href="/groups" class="nav-item {% if request.path == '/groups' %}active{% endif %}">
+                <i>🖥️</i><span>{{ t('nav.groups') }}</span>
+            </a>
+            {% endif %}
+            
+            {% if has_permission('manage_system') %}
+            <a href="/outlets" class="nav-item {% if request.path == '/outlets' %}active{% endif %}">
+                <i>🔌</i><span>{{ 'Zásuvky (GPIO)' if language == 'cs' else 'Outlets (GPIO)' }}</span>
+            </a>
+            {% endif %}
+            
+            {% if has_permission('manage_scheduler') %}
+            <a href="/scheduler" class="nav-item {% if request.path == '/scheduler' %}active{% endif %}">
+                <i>📅</i><span>{{ t('nav.scheduler') }}</span>
+            </a>
+            {% endif %}
+            
+            {% if has_permission('manage_network') %}
+            <a href="/network" class="nav-item {% if request.path == '/network' %}active{% endif %}">
+                <i>🌐</i><span>{{ t('nav.network') }}</span>
+            </a>
+            {% endif %}
+            
+            {% if has_permission('manage_system') %}
+            <a href="/system" class="nav-item {% if request.path == '/system' %}active{% endif %}">
+                <i>⚙️</i><span>{{ t('nav.system') }}</span>
+            </a>
+            {% endif %}
+            
+            {% if has_permission('manage_smtp') %}
+            <a href="/smtp" class="nav-item {% if request.path == '/smtp' %}active{% endif %}">
+                <i>📧</i><span>{{ t('nav.email') }}</span>
+            </a>
+            {% endif %}
+            
+            {% if has_permission('manage_users') %}
+            <div class="nav-section">{{ 'Administrace' if language == 'cs' else 'Administration' }}</div>
+            <a href="/users" class="nav-item {% if '/users' in request.path %}active{% endif %}">
+                <i>👥</i><span>{{ t('nav.users') }}</span>
+            </a>
+            {% endif %}
+            
+            {% if has_permission('view_audit') %}
+            <a href="/audit" class="nav-item {% if request.path == '/audit' %}active{% endif %}">
+                <i>📋</i><span>{{ t('nav.audit') }}</span>
+            </a>
+            {% endif %}
+            
+            {% if has_permission('export_import') %}
+            <a href="/backups" class="nav-item {% if request.path == '/backups' %}active{% endif %}">
+                <i>💾</i><span>{{ t('nav.backups') }}</span>
+            </a>
+            {% endif %}
+            
+            {% if has_permission('manage_system') %}
+            <a href="/maintenance" class="nav-item {% if request.path == '/maintenance' %}active{% endif %}">
+                <i>🔧</i><span>{{ 'Údržba' if language == 'cs' else 'Maintenance' }}</span>
+            </a>
+            <a href="/updates" class="nav-item {% if request.path == '/updates' %}active{% endif %}">
+                <i>⬇️</i><span>{{ 'Aktualizace' if language == 'cs' else 'Updates' }}</span>
+            </a>
+            {% endif %}
+            
+            <div class="nav-section">{{ 'Účet' if language == 'cs' else 'Account' }}</div>
+            <a href="/account" class="nav-item {% if request.path == '/account' %}active{% endif %}">
+                <i>👤</i><span>{{ t('nav.account') }}</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="theme-toggle" style="margin-bottom: 10px; display: flex; justify-content: center; gap: 5px;">
+                <button onclick="setTheme('light')" class="theme-btn {% if theme == 'light' %}active{% endif %}" title="Light">☀️</button>
+                <button onclick="setTheme('dark')" class="theme-btn {% if theme == 'dark' %}active{% endif %}" title="Dark">🌙</button>
+                <button onclick="setTheme('auto')" class="theme-btn {% if theme == 'auto' %}active{% endif %}" title="Auto">🔄</button>
+            </div>
+            <button class="logout-btn" onclick="window.location='/logout'">{{ t('nav.logout') }}</button>
+            <div class="version-info">{{ t('app.name') }} {{ t('app.version') }}<br>{{ t('app.copyright') }}</div>
+        </div>
+    </div>
+    
+    <div class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </div>
+    
+    <script>
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            if (newTheme === 'light') {
+                body.setAttribute('data-theme', 'light');
+            } else {
+                body.removeAttribute('data-theme');
+            }
+            localStorage.setItem('watchdog-theme', newTheme);
+            
+            // Update active button
+            document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.theme-btn[onclick="setTheme('${newTheme}')"]`)?.classList.add('active');
+            
+            // Save to server
+            fetch('/api/theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: newTheme })
+            });
+        }
+        
+        function applyTheme(theme) {
+            if (theme === 'auto') {
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.body.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+            } else {
+                document.body.setAttribute('data-theme', theme);
+            }
+        }
+        
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('watchdog-theme') || 'dark';
+            applyTheme(savedTheme);
+            
+            // Listen for system theme changes
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                if (localStorage.getItem('watchdog-theme') === 'auto') applyTheme('auto');
+            });
+            
+            setTimeout(() => {
+                document.querySelectorAll('.alert').forEach(alert => {
+                    alert.style.transition = 'opacity 0.5s';
+                    alert.style.opacity = '0';
+                    setTimeout(() => alert.remove(), 500);
+                });
+            }, 5000);
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

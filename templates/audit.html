@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('audit.title') }} - {{ t('app.name') }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ t('audit.title') }}</h1>
+
+<div class="section">
+    <form method="get" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>{{ t('audit.event') }}</label>
+            <select name="event" onchange="this.form.submit()">
+                <option value="">{{ t('audit.all_events') }}</option>
+                <option value="login" {% if request.args.get('event') == 'login' %}selected{% endif %}>🔓 Login</option>
+                <option value="logout" {% if request.args.get('event') == 'logout' %}selected{% endif %}>🔒 Logout</option>
+                <option value="login_failed" {% if request.args.get('event') == 'login_failed' %}selected{% endif %}>⛔ Login Failed</option>
+                <option value="config_change" {% if request.args.get('event') == 'config_change' %}selected{% endif %}>⚙️ Config Change</option>
+                <option value="user_change" {% if request.args.get('event') == 'user_change' %}selected{% endif %}>👤 User Change</option>
+                <option value="relay_control" {% if request.args.get('event') == 'relay_control' %}selected{% endif %}>⚡ Relay Control</option>
+                <option value="scheduled_restart" {% if request.args.get('event') == 'scheduled_restart' %}selected{% endif %}>📅 Scheduled Restart</option>
+                <option value="auto_restart" {% if request.args.get('event') == 'auto_restart' %}selected{% endif %}>🔄 Auto Restart</option>
+                <option value="password_change" {% if request.args.get('event') == 'password_change' %}selected{% endif %}>🔑 Password Change</option>
+            </select>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>{{ t('audit.user') }}</label>
+            <input type="text" name="user" value="{{ request.args.get('user', '') }}" placeholder="username" style="width: 150px;">
+        </div>
+        
+        <button type="submit" class="btn btn-primary">{{ t('audit.filter') }}</button>
+        <a href="/audit" class="btn btn-secondary">Reset</a>
+    </form>
+</div>
+
+<div class="section">
+    {% if entries %}
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 160px;">{{ t('audit.time') }}</th>
+                <th style="width: 180px;">{{ t('audit.event') }}</th>
+                <th>{{ t('audit.user') }}</th>
+                <th>{{ t('audit.ip') }}</th>
+                <th>{{ t('audit.target') }}</th>
+                <th>{{ t('audit.details') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr>
+                <td style="font-size: 0.9em; color: var(--text-secondary);">{{ entry.formatted_time }}</td>
+                <td>
+                    <span style="font-size: 1.2em;">{{ entry.icon }}</span>
+                    {{ entry.event_name }}
+                </td>
+                <td><strong>{{ entry.user }}</strong></td>
+                <td style="font-family: monospace; font-size: 0.9em;">{{ entry.ip or '-' }}</td>
+                <td>{{ entry.target or '-' }}</td>
+                <td style="font-size: 0.9em; color: var(--text-secondary);">{{ entry.details or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
+        {{ 'Žádné záznamy' if language == 'cs' else 'No entries' }}
+    </p>
+    {% endif %}
+</div>
+{% endblock %}

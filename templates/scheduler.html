@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('scheduler.title') }} - {{ t('app.name') }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ t('scheduler.title') }}</h1>
+
+<div class="section">
+    <h3>{{ t('scheduler.add_schedule') }}</h3>
+    <form method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="add">
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label>{{ t('groups.group_name') }}</label>
+                <select name="group_name" required>
+                    {% for group in groups %}
+                    <option value="{{ group }}">{{ group }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>{{ t('scheduler.day') }}</label>
+                <select name="day">
+                    <option value="0">{{ 'Pondělí' if language == 'cs' else 'Monday' }}</option>
+                    <option value="1">{{ 'Úterý' if language == 'cs' else 'Tuesday' }}</option>
+                    <option value="2">{{ 'Středa' if language == 'cs' else 'Wednesday' }}</option>
+                    <option value="3">{{ 'Čtvrtek' if language == 'cs' else 'Thursday' }}</option>
+                    <option value="4">{{ 'Pátek' if language == 'cs' else 'Friday' }}</option>
+                    <option value="5">{{ 'Sobota' if language == 'cs' else 'Saturday' }}</option>
+                    <option value="6">{{ 'Neděle' if language == 'cs' else 'Sunday' }}</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>{{ t('scheduler.time') }}</label>
+                <div style="display: flex; gap: 5px;">
+                    <select name="hour" style="width: 80px;">
+                        {% for h in range(24) %}
+                        <option value="{{ h }}">{{ '%02d' % h }}</option>
+                        {% endfor %}
+                    </select>
+                    <span style="line-height: 38px;">:</span>
+                    <select name="minute" style="width: 80px;">
+                        {% for m in range(0, 60, 5) %}
+                        <option value="{{ m }}">{{ '%02d' % m }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">{{ t('common.add') }}</button>
+    </form>
+</div>
+
+<div class="section">
+    <h3>{{ t('scheduler.title') }}</h3>
+    
+    {% if schedules %}
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t('groups.group_name') }}</th>
+                <th>{{ t('scheduler.day') }}</th>
+                <th>{{ t('scheduler.time') }}</th>
+                <th>{{ t('scheduler.next_run') }}</th>
+                <th>{{ t('common.active') }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for schedule in schedules %}
+            <tr>
+                <td><strong>{{ schedule.group }}</strong></td>
+                <td>
+                    {% set days_cs = ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'] %}
+                    {% set days_en = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] %}
+                    {{ days_cs[schedule.day] if language == 'cs' else days_en[schedule.day] }}
+                </td>
+                <td>{{ '%02d:%02d' % (schedule.hour, schedule.minute) }}</td>
+                <td>
+                    {% if schedule.next_run %}
+                    {{ schedule.next_run[:16].replace('T', ' ') }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>
+                    <form method="post" style="display: inline;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="toggle">
+                        <input type="hidden" name="group_name" value="{{ schedule.group }}">
+                        <input type="hidden" name="index" value="{{ schedule.index }}">
+                        <input type="hidden" name="enabled" value="{{ 'false' if schedule.enabled else 'true' }}">
+                        <button type="submit" class="btn {% if schedule.enabled %}btn-power-on{% else %}btn-secondary{% endif %}" 
+                                style="padding: 3px 10px; font-size: 0.85em;">
+                            {% if schedule.enabled %}✓ {{ t('common.active') }}{% else %}✗{% endif %}
+                        </button>
+                    </form>
+                </td>
+                <td>
+                    <form method="post" style="display: inline;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="remove">
+                        <input type="hidden" name="group_name" value="{{ schedule.group }}">
+                        <input type="hidden" name="index" value="{{ schedule.index }}">
+                        <button type="submit" class="btn btn-power-off" style="padding: 3px 10px;">
+                            {{ t('common.delete') }}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 30px;">
+        {{ t('scheduler.no_schedules') }}
+    </p>
+    {% endif %}
+</div>
+{% endblock %}

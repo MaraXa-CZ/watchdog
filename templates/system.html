@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('system.title') }} - {{ t('app.name') }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ t('system.title') }}</h1>
+
+<form method="post">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    
+    <div class="section">
+        <h3>{{ t('system.basic') }}</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label>{{ t('system.hostname') }}</label>
+                <input type="text" name="hostname" value="{{ config.system.hostname | default('watchdog') }}">
+            </div>
+            
+            <div class="form-group">
+                <label>{{ t('system.web_port') }}</label>
+                <input type="number" name="web_port" value="{{ config.system.web_port | default(80) }}" min="80" max="65535">
+            </div>
+            
+            <div class="form-group">
+                <label>{{ t('system.check_interval') }} (s)</label>
+                <input type="number" name="check_interval" value="{{ config.check_interval | default(10) }}" min="5" max="300">
+            </div>
+            
+            <div class="form-group">
+                <label>{{ t('system.debug_mode') }}</label>
+                <select name="debug">
+                    <option value="false" {% if not config.system.debug %}selected{% endif %}>{{ t('common.no') }}</option>
+                    <option value="true" {% if config.system.debug %}selected{% endif %}>{{ t('common.yes') }}</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>{{ t('system.ntp_servers') }}</label>
+            <input type="text" name="ntp_servers" value="{{ config.system.ntp_servers | default([]) | join(' ') }}">
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label>{{ 'Časové pásmo' if language == 'cs' else 'Timezone' }}</label>
+                <select name="timezone">
+                    {% for tz in timezones %}
+                    <option value="{{ tz }}" {% if config.system.timezone == tz %}selected{% endif %}>{{ tz }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>{{ 'Výchozí jazyk' if language == 'cs' else 'Default Language' }}</label>
+                <select name="default_language">
+                    {% for code, lang_info in languages.items() %}
+                    <option value="{{ code }}" {% if config.system.default_language == code %}selected{% endif %}>
+                        {{ lang_info.flag }} {{ lang_info.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h3>{{ t('system.features') }}</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="ping_stats" value="true" 
+                           {% if config.features.ping_stats | default(true) %}checked{% endif %}>
+                    {{ 'Statistiky' if language == 'cs' else 'Statistics' }}
+                </label>
+                <div class="help">{{ 'Sběr statistik a zobrazení grafů na dashboardu' if language == 'cs' else 'Collect statistics and show charts on dashboard' }}</div>
+            </div>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="live_status" value="true" 
+                           {% if config.features.live_status | default(true) %}checked{% endif %}>
+                    {{ t('system.live_status') }}
+                </label>
+                <div class="help">{{ 'Automatické obnovování statusu na dashboardu' if language == 'cs' else 'Auto-refresh dashboard status' }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h3>{{ t('system.ssl') }}</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="ssl_enabled" value="true" 
+                           {% if config.system.ssl_enabled %}checked{% endif %}>
+                    {{ t('system.ssl_enabled') }}
+                </label>
+                <div class="help">{{ 'Vyžaduje certifikát v /opt/watchdog/ssl/' if language == 'cs' else 'Requires certificate in /opt/watchdog/ssl/' }}</div>
+            </div>
+            
+            <div class="form-group">
+                <label>{{ t('system.ssl_port') }}</label>
+                <input type="number" name="ssl_port" value="{{ config.system.ssl_port | default(443) }}" min="443" max="65535">
+            </div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h3>{{ t('system.logging') }}</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label>{{ t('system.log_max_size') }} (KB)</label>
+                <input type="number" name="log_max_kb" value="{{ config.log_max_kb | default(512) }}" min="100" max="10240">
+            </div>
+            
+            <div class="form-group">
+                <label>{{ t('system.log_lines') }}</label>
+                <input type="number" name="log_view_lines" value="{{ config.log_view_lines | default(50) }}" min="10" max="200">
+            </div>
+        </div>
+    </div>
+    
+    <button type="submit" class="btn btn-primary">{{ t('common.save') }}</button>
+</form>
+
+<div class="section" style="margin-top: 30px;">
+    <h3>{{ 'Aktualizace' if language == 'cs' else 'Updates' }}</h3>
+    
+    {% if git_installed %}
+    <p style="color: var(--success-color); margin-bottom: 15px;">
+        ✅ {{ 'Git instalace - aktualizace přes web UI nebo příkaz' if language == 'cs' else 'Git install - update via web UI or command' }}
+    </p>
+    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+        <code>cd /opt/watchdog && sudo git pull && sudo bash install.sh</code>
+    </div>
+    <a href="/updates" class="btn btn-secondary">⬇️ {{ 'Zkontrolovat aktualizace' if language == 'cs' else 'Check for Updates' }}</a>
+    {% else %}
+    <p style="color: var(--warning-color); margin-bottom: 15px;">
+        ⚠️ {{ 'Ruční instalace - aktualizace pomocí skriptu' if language == 'cs' else 'Manual install - update via script' }}
+    </p>
+    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+        <p style="margin-bottom: 10px;">{{ 'Pro aktualizaci spusťte:' if language == 'cs' else 'To update, run:' }}</p>
+        <code>sudo bash /opt/watchdog/update.sh</code>
+    </div>
+    <p style="color: var(--text-secondary); font-size: 0.9em;">
+        {{ 'Skript automaticky stáhne nejnovější verzi z GitHubu a aktualizuje všechny soubory.' if language == 'cs' else 'The script will automatically download the latest version from GitHub and update all files.' }}
+    </p>
+    {% endif %}
+</div>
+
+<div class="section" style="margin-top: 30px;">
+    <h3>{{ t('system.export_import') }}</h3>
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <a href="/export" class="btn btn-secondary">📥 {{ t('system.export') }}</a>
+        
+        <form method="post" action="/import" enctype="multipart/form-data" style="display: flex; gap: 10px;">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="file" name="config_file" accept=".json" required style="padding: 5px;">
+            <button type="submit" class="btn btn-secondary">📤 {{ t('system.import') }}</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

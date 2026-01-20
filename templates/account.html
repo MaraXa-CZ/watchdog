@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('account.title') }} - {{ t('app.name') }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ t('account.title') }}</h1>
+
+<div class="dashboard-grid">
+    <div class="section">
+        <h3>{{ t('account.change_password') }}</h3>
+        <form method="post">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="change_password">
+            
+            <div class="form-group">
+                <label>{{ t('account.current_password') }}</label>
+                <input type="password" name="current_password" required>
+            </div>
+            
+            <div class="form-group">
+                <label>{{ t('account.new_password') }}</label>
+                <input type="password" name="new_password" required minlength="4">
+            </div>
+            
+            <div class="form-group">
+                <label>{{ t('account.confirm_password') }}</label>
+                <input type="password" name="confirm_password" required minlength="4">
+            </div>
+            
+            <button type="submit" class="btn btn-primary">{{ t('common.save') }}</button>
+        </form>
+    </div>
+    
+    <div class="section">
+        <h3>{{ t('account.language_preference') }}</h3>
+        <form method="post">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="change_language">
+            
+            <div class="form-group">
+                <label>{{ t('users.language') }}</label>
+                <select name="language">
+                    {% for code, lang_info in languages.items() %}
+                    <option value="{{ code }}" {% if user.language == code %}selected{% endif %}>
+                        {{ lang_info.flag }} {{ lang_info.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">{{ t('common.save') }}</button>
+        </form>
+    </div>
+</div>
+
+<div class="section">
+    <h3>{{ t('account.api_token') }}</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 15px;">
+        {{ t('account.token_warning') }}
+    </p>
+    
+    <div style="display: flex; gap: 10px;">
+        <form method="post" style="display: inline;">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="generate_token">
+            <button type="submit" class="btn btn-primary">{{ t('account.generate_token') }}</button>
+        </form>
+        
+        <form method="post" style="display: inline;">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="revoke_token">
+            <button type="submit" class="btn btn-secondary">{{ t('account.revoke_token') }}</button>
+        </form>
+    </div>
+</div>
+
+<div class="section">
+    <h3>{{ t('dashboard.system_info') }}</h3>
+    <table>
+        <tr>
+            <td><strong>{{ t('users.username') }}:</strong></td>
+            <td>{{ user.username }}</td>
+        </tr>
+        <tr>
+            <td><strong>{{ t('users.role') }}:</strong></td>
+            <td>{{ t('roles.' + user.role) }}</td>
+        </tr>
+        <tr>
+            <td><strong>{{ t('users.created') }}:</strong></td>
+            <td>{{ user.created_at[:16] if user.created_at else '-' }}</td>
+        </tr>
+        <tr>
+            <td><strong>{{ t('users.last_login') }}:</strong></td>
+            <td>{{ user.last_login[:16] if user.last_login else '-' }}</td>
+        </tr>
+    </table>
+</div>
+{% endblock %}
