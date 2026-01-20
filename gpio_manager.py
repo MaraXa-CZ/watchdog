@@ -525,6 +525,25 @@ class GPIOManager:
             log("ERROR", f"Command execution failed: {e}")
             return False
     
+    def clear_old_commands(self, max_age_seconds: int = 300):
+        """Remove old command files that were never processed."""
+        try:
+            now = time.time()
+            for filename in os.listdir(COMMAND_DIR):
+                if filename.startswith('cmd_') and filename.endswith('.json'):
+                    filepath = os.path.join(COMMAND_DIR, filename)
+                    try:
+                        file_age = now - os.path.getmtime(filepath)
+                        if file_age > max_age_seconds:
+                            os.remove(filepath)
+                            log("GPIO", f"Removed old command file: {filename}")
+                    except:
+                        pass
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            log("ERROR", f"Failed to clear old commands: {e}")
+    
     def cleanup(self):
         """Cleanup GPIO resources."""
         with self._gpio_lock:
