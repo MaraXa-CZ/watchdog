@@ -419,7 +419,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                    <div class="alert alert-{{ category }} flash-message">{{ message }}</div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
@@ -470,7 +470,7 @@
             });
             
             setTimeout(() => {
-                document.querySelectorAll('.alert').forEach(alert => {
+                document.querySelectorAll('.flash-message').forEach(alert => {
                     alert.style.transition = 'opacity 0.5s';
                     alert.style.opacity = '0';
                     setTimeout(() => alert.remove(), 500);
