@@ -51,11 +51,13 @@
             {% if stats_summaries.get(group.name) %}
             <div style="font-size: 0.85em; margin-bottom: 10px; padding: 8px; background: var(--bg-primary); border-radius: 3px;">
                 📊 {{ t('stats.uptime_percent') }}: <strong>{{ stats_summaries[group.name].uptime_percent }}%</strong>
+                {% if group.outlet and outlets.get(group.outlet) %}
                 | {{ t('stats.total_resets') }}: {{ stats_summaries[group.name].total_resets }}
+                {% endif %}
             </div>
             {% endif %}
             
-            {% if has_permission('control_relays') and group.outlet and group.outlet != '' and group.outlet != 'none' %}
+            {% if has_permission('control_relays') and group.outlet and outlets.get(group.outlet) %}
             <div class="control-buttons">
                 <form method="post" action="/control" style="display: contents;">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -89,7 +91,7 @@
     <div class="form-row">
         <div><strong>{{ t('dashboard.hostname') }}:</strong> {{ config.system.hostname | default('watchdog') }}</div>
         <div><strong>{{ t('dashboard.check_interval') }}:</strong> {{ config.check_interval | default(10) }}s</div>
-        <div><strong>{{ t('dashboard.debug_mode') }}:</strong> {{ t('common.yes') if config.system.debug else t('common.no') }}</div>
+        <div><strong>{{ 'Statistiky' if language == 'cs' else 'Statistics' }}:</strong> {{ t('common.yes') if config.features.ping_stats else t('common.no') }}</div>
         <div><strong>{{ t('dashboard.active_groups') }}:</strong> {{ groups | length }}</div>
     </div>
     <div style="margin-top: 15px; padding: 12px; background: var(--bg-primary); border-radius: 5px; display: flex; justify-content: space-between; align-items: center;">
