@@ -368,7 +368,7 @@ def groups():
                     })
             
             cfg['groups'] = new_groups
-            save_config(cfg, backup=True)
+            save_config(cfg)
             
             audit_log.log_config_change(session['username'], "groups", 
                                        f"Updated {len(new_groups)} groups", request.remote_addr)
@@ -462,7 +462,7 @@ def outlets_add():
             "gpio_pin": gpio_pin
         }
         
-        save_config(cfg, backup=True)
+        save_config(cfg)
         audit_log.log_config_change(session['username'], "outlets", 
                                    f"Added {outlet_key} (GPIO {gpio_pin})", request.remote_addr)
         flash(t("common.success"), "success")
@@ -497,7 +497,7 @@ def outlets_delete(outlet_key):
         gpio_pin = cfg["outlets"][outlet_key].get("gpio_pin")
         del cfg["outlets"][outlet_key]
         
-        save_config(cfg, backup=True)
+        save_config(cfg)
         audit_log.log_config_change(session['username'], "outlets",
                                    f"Deleted {outlet_key} (GPIO {gpio_pin})", request.remote_addr)
         flash(t("common.success"), "success")
@@ -530,7 +530,7 @@ def outlets_rename(outlet_key):
         old_name = cfg["outlets"][outlet_key].get("name")
         cfg["outlets"][outlet_key]["name"] = new_name
         
-        save_config(cfg, backup=True)
+        save_config(cfg)
         audit_log.log_config_change(session['username'], "outlets",
                                    f"Renamed {outlet_key}: '{old_name}' → '{new_name}'", request.remote_addr)
         
@@ -565,7 +565,7 @@ def scheduler_page():
                 
                 # Save to config
                 cfg['groups'] = scheduler.save_to_config(cfg.get('groups', []))
-                save_config(cfg, backup=True)
+                save_config(cfg)
                 
                 audit_log.log_config_change(session['username'], "scheduler",
                                            f"Added schedule for {group_name}", request.remote_addr)
@@ -576,7 +576,7 @@ def scheduler_page():
                 group_scheduler.remove_schedule(index)
                 
                 cfg['groups'] = scheduler.save_to_config(cfg.get('groups', []))
-                save_config(cfg, backup=True)
+                save_config(cfg)
                 
                 audit_log.log_config_change(session['username'], "scheduler",
                                            f"Removed schedule from {group_name}", request.remote_addr)
@@ -588,7 +588,7 @@ def scheduler_page():
                 group_scheduler.update_schedule(index, enabled=enabled)
                 
                 cfg['groups'] = scheduler.save_to_config(cfg.get('groups', []))
-                save_config(cfg, backup=True)
+                save_config(cfg)
             
             flash(t("common.success"), "success")
             
@@ -945,7 +945,7 @@ def network():
             cfg['network']['dns_servers'] = network_config['dns_servers']
             cfg['network']['interface'] = network_config['interface']
             
-            save_config(cfg, backup=True)
+            save_config(cfg)
             
             # Check if IP is changing
             old_ip = current.get('ip_address', '')
@@ -1079,7 +1079,7 @@ def system():
                     cfg['system']['ssl_enabled'] = False
                     new_ssl = False
             
-            save_config(cfg, backup=True)
+            save_config(cfg)
             audit_log.log_config_change(session['username'], "system", "", request.remote_addr)
             flash(t("system.saved"), "success")
             
@@ -1225,7 +1225,7 @@ def smtp():
             cfg['smtp']['notify_on_reset'] = request.form.get('notify_reset') == 'true'
             cfg['smtp']['notify_on_error'] = request.form.get('notify_error') == 'true'
             
-            save_config(cfg, backup=True)
+            save_config(cfg)
             configure_notifier(cfg['smtp'])
             audit_log.log_config_change(session['username'], "smtp", "", request.remote_addr)
             flash(t("smtp.saved"), "success")
@@ -1712,7 +1712,7 @@ def reorder_groups():
         new_groups.extend(group_map.values())
         
         cfg['groups'] = new_groups
-        save_config(cfg, backup=True)
+        save_config(cfg)
         
         audit_log.log_config_change(session['username'], "groups", "Reordered groups", request.remote_addr)
         

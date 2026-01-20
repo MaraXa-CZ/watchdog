@@ -174,11 +174,28 @@ class NetworkManager:
         try:
             if os.path.exists(self.DHCPCD_CONF):
                 with open(self.DHCPCD_CONF) as f:
-                    content = f.read()
-                    # Look for static ip_address for this interface
-                    pattern = rf'interface\s+{interface}\s+[\s\S]*?static\s+ip_address'
-                    if re.search(pattern, content):
+                    lines = f.readlines()
+                
+                in_interface_block = False
+                for line in lines:
+                    # Skip comments
+                    stripped = line.strip()
+                    if stripped.startswith('#') or not stripped:
+                        continue
+                    
+                    # Check for interface block start
+                    if stripped.startswith('interface '):
+                        in_interface_block = (interface in stripped)
+                        continue
+                    
+                    # If in our interface block, look for static ip_address
+                    if in_interface_block and stripped.startswith('static ip_address'):
                         return "static"
+                    
+                    # New interface block means we left our block
+                    if stripped.startswith('interface '):
+                        in_interface_block = False
+                        
         except Exception as e:
             log("ERROR", f"Failed to read dhcpcd.conf: {e}")
         return "dhcp"

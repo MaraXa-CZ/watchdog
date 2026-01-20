@@ -20,8 +20,6 @@ ssl/
 *.key
 
 # Documentation (not needed for install)
-docs/
-schematics/
 
 # Python cache
 __pycache__/

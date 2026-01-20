@@ -155,7 +155,6 @@ install_files() {
         cp "$SCRIPT_DIR"/*.md "$INSTALL_DIR/" 2>/dev/null || true
         cp -r "$SCRIPT_DIR/templates" "$INSTALL_DIR/" 2>/dev/null || true
         cp -r "$SCRIPT_DIR/mobile" "$INSTALL_DIR/" 2>/dev/null || true
-        cp -r "$SCRIPT_DIR/docs" "$INSTALL_DIR/" 2>/dev/null || true
     fi
     
     # Restore user data

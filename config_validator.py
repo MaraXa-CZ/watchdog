@@ -470,12 +470,12 @@ def load_config() -> dict:
     if not valid:
         # Try to repair
         config = validator.repair(config)
-        save_config(config, backup=True)
+        save_config(config)  # No backup for auto-repair
     
     return config
 
 
-def save_config(config: dict, backup: bool = True):
+def save_config(config: dict, backup: bool = False):
     """Save configuration to file."""
     validator = ConfigValidator()
     
