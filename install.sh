@@ -295,11 +295,16 @@ import json
 from werkzeug.security import generate_password_hash
 from datetime import datetime
 
+password = """$ADMIN_PASS"""
 users = {
-    "admin": {
-        "password": generate_password_hash("$ADMIN_PASS"),
-        "role": "admin",
-        "created": datetime.now().isoformat()
+    "users": {
+        "admin": {
+            "password_hash": generate_password_hash(password),
+            "role": "admin",
+            "language": "cs",
+            "theme": "dark",
+            "created": datetime.now().isoformat()
+        }
     }
 }
 

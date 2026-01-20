@@ -54,7 +54,7 @@ class UserManager:
         """Create default admin user."""
         self._users["admin"] = {
             **DEFAULT_ADMIN,
-            "password": generate_password_hash("admin"),
+            "password_hash": generate_password_hash("admin"),
             "created_at": datetime.now().isoformat(),
             "api_token": None
         }
@@ -72,7 +72,7 @@ class UserManager:
         if not user.get("active", True):
             return None
         
-        if check_password_hash(user.get("password", ""), password):
+        if check_password_hash(user.get("password_hash", ""), password):
             # Update last login
             user["last_login"] = datetime.now().isoformat()
             self._save()
@@ -138,7 +138,7 @@ class UserManager:
         
         self._users[username] = {
             "username": username,
-            "password": generate_password_hash(password),
+            "password_hash": generate_password_hash(password),
             "role": role,
             "language": language,
             "created_at": datetime.now().isoformat(),
@@ -187,13 +187,13 @@ class UserManager:
         
         user = self._users[username]
         
-        if not check_password_hash(user.get("password", ""), old_password):
+        if not check_password_hash(user.get("password_hash", ""), old_password):
             return False, "Current password is incorrect"
         
         if len(new_password) < 4:
             return False, "New password too short (min 4 chars)"
         
-        user["password"] = generate_password_hash(new_password)
+        user["password_hash"] = generate_password_hash(new_password)
         self._save()
         return True, "Password changed"
     
@@ -205,7 +205,7 @@ class UserManager:
         if len(new_password) < 4:
             return False, "Password too short (min 4 chars)"
         
-        self._users[username]["password"] = generate_password_hash(new_password)
+        self._users[username]["password_hash"] = generate_password_hash(new_password)
         self._save()
         return True, "Password reset"
     

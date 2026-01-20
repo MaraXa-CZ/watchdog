@@ -1,12 +1,12 @@
 """
-Watchdog v5.0 - Universal GPIO Manager
-======================================
-Supports multiple GPIO backends for maximum compatibility:
-- gpiod (libgpiod) - Debian 13+ (Trixie), future standard
-- lgpio - Raspberry Pi 5, Bookworm+
-- gpiozero/RPi.GPIO - Legacy Pi 1-4
+Watchdog v3.0 - GPIO Manager
+============================
+Singleton pattern for GPIO control with command queue.
+Prevents race conditions between web interface and watchdog daemon.
 
-Auto-detects the best available backend based on OS and hardware.
+Supports: Raspberry Pi 1-5
+- Pi 1-4: Uses RPi.GPIO backend (default)
+- Pi 5: Uses lgpio backend (auto-detected)
 """
 
 import os
@@ -18,338 +18,40 @@ from datetime import datetime
 from typing import Dict, Optional, Callable
 from enum import Enum
 
+# Auto-detect Pi model and select appropriate GPIO backend
+PI5_MODE = False
+GPIO_AVAILABLE = False
+
+try:
+    # Check if running on Pi 5
+    if os.path.exists('/proc/device-tree/model'):
+        with open('/proc/device-tree/model') as f:
+            model = f.read()
+            if 'Pi 5' in model:
+                PI5_MODE = True
+    
+    from gpiozero import OutputDevice
+    
+    # For Pi 5, try to use lgpio backend
+    if PI5_MODE:
+        try:
+            from gpiozero.pins.lgpio import LGPIOFactory
+            from gpiozero import Device
+            Device.pin_factory = LGPIOFactory()
+            print("GPIO: Using lgpio backend (Pi 5)")
+        except ImportError:
+            print("WARNING: lgpio not available, GPIO may not work on Pi 5")
+            print("Install with: sudo apt install python3-lgpio")
+    
+    GPIO_AVAILABLE = True
+
+except ImportError:
+    GPIO_AVAILABLE = False
+    OutputDevice = None
+
 from constants import COMMAND_DIR, VALID_GPIO_PINS
 from logger import log
 
-
-# ============================================================================
-# Helper Functions
-# ============================================================================
-
-def _is_pi5() -> bool:
-    """Detect Raspberry Pi 5."""
-    try:
-        with open('/proc/device-tree/model') as f:
-            return 'Pi 5' in f.read()
-    except:
-        return False
-
-
-def _get_os_version() -> int:
-    """Get Debian/Raspbian major version number."""
-    try:
-        with open('/etc/debian_version') as f:
-            version = f.read().strip()
-            if '/' in version:
-                codenames = {'bullseye': 11, 'bookworm': 12, 'trixie': 13, 'forky': 14}
-                name = version.split('/')[0].lower()
-                return codenames.get(name, 12)
-            else:
-                return int(float(version))
-    except:
-        return 12
-
-
-# ============================================================================
-# GPIO Backend Classes
-# ============================================================================
-
-class GPIOBackend:
-    """Abstract GPIO backend interface."""
-    
-    name = "base"
-    
-    def __init__(self):
-        self.initialized_pins = {}
-    
-    def setup_output(self, pin: int, name: str = "") -> bool:
-        raise NotImplementedError
-    
-    def write(self, pin: int, value: bool) -> bool:
-        raise NotImplementedError
-    
-    def read(self, pin: int) -> Optional[bool]:
-        raise NotImplementedError
-    
-    def cleanup(self, pin: int = None):
-        raise NotImplementedError
-
-
-class GPIOdBackend(GPIOBackend):
-    """libgpiod backend for Debian 13+ (Trixie)."""
-    
-    name = "gpiod"
-    
-    def __init__(self):
-        super().__init__()
-        import gpiod
-        self.gpiod = gpiod
-        
-        # Pi 5: gpiochip4, Pi 4 and older: gpiochip0
-        chip_name = "gpiochip4" if _is_pi5() else "gpiochip0"
-        
-        try:
-            self.chip = gpiod.Chip(chip_name)
-        except:
-            self.chip = gpiod.Chip("gpiochip0")
-            chip_name = "gpiochip0"
-        
-        self.lines = {}
-        log("GPIO", f"Using gpiod backend with {chip_name}")
-    
-    def setup_output(self, pin: int, name: str = "") -> bool:
-        try:
-            # gpiod v2.x API
-            if hasattr(self.gpiod, 'LineSettings'):
-                config = self.gpiod.LineSettings(
-                    direction=self.gpiod.line.Direction.OUTPUT,
-                    output_value=self.gpiod.line.Value.INACTIVE
-                )
-                line = self.chip.request_lines(
-                    consumer=f"watchdog-{name or pin}",
-                    config={pin: config}
-                )
-            else:
-                # gpiod v1.x API fallback
-                line = self.chip.get_line(pin)
-                line.request(consumer=f"watchdog-{name or pin}", 
-                           type=self.gpiod.LINE_REQ_DIR_OUT)
-            
-            self.lines[pin] = line
-            self.initialized_pins[pin] = name
-            return True
-        except Exception as e:
-            log("ERROR", f"gpiod setup failed for pin {pin}: {e}")
-            return False
-    
-    def write(self, pin: int, value: bool) -> bool:
-        try:
-            if pin not in self.lines:
-                return False
-            
-            line = self.lines[pin]
-            
-            # gpiod v2.x
-            if hasattr(self.gpiod, 'line') and hasattr(self.gpiod.line, 'Value'):
-                val = self.gpiod.line.Value.ACTIVE if value else self.gpiod.line.Value.INACTIVE
-                line.set_value(pin, val)
-            else:
-                # gpiod v1.x
-                line.set_value(1 if value else 0)
-            
-            return True
-        except Exception as e:
-            log("ERROR", f"gpiod write failed for pin {pin}: {e}")
-            return False
-    
-    def read(self, pin: int) -> Optional[bool]:
-        try:
-            if pin not in self.lines:
-                return None
-            
-            line = self.lines[pin]
-            
-            if hasattr(self.gpiod, 'line') and hasattr(self.gpiod.line, 'Value'):
-                val = line.get_value(pin)
-                return val == self.gpiod.line.Value.ACTIVE
-            else:
-                return line.get_value() == 1
-        except:
-            return None
-    
-    def cleanup(self, pin: int = None):
-        try:
-            if pin and pin in self.lines:
-                self.lines[pin].release()
-                del self.lines[pin]
-                self.initialized_pins.pop(pin, None)
-            elif pin is None:
-                for line in self.lines.values():
-                    try:
-                        line.release()
-                    except:
-                        pass
-                self.lines.clear()
-                self.initialized_pins.clear()
-        except Exception as e:
-            log("ERROR", f"gpiod cleanup failed: {e}")
-
-
-class LGPIOBackend(GPIOBackend):
-    """lgpio backend for Raspberry Pi 5."""
-    
-    name = "lgpio"
-    
-    def __init__(self):
-        super().__init__()
-        import lgpio
-        self.lgpio = lgpio
-        self.chip = lgpio.gpiochip_open(0)
-        log("GPIO", "Using lgpio backend")
-    
-    def setup_output(self, pin: int, name: str = "") -> bool:
-        try:
-            self.lgpio.gpio_claim_output(self.chip, pin, 0)
-            self.initialized_pins[pin] = name
-            return True
-        except Exception as e:
-            log("ERROR", f"lgpio setup failed for pin {pin}: {e}")
-            return False
-    
-    def write(self, pin: int, value: bool) -> bool:
-        try:
-            self.lgpio.gpio_write(self.chip, pin, 1 if value else 0)
-            return True
-        except Exception as e:
-            log("ERROR", f"lgpio write failed for pin {pin}: {e}")
-            return False
-    
-    def read(self, pin: int) -> Optional[bool]:
-        try:
-            return self.lgpio.gpio_read(self.chip, pin) == 1
-        except:
-            return None
-    
-    def cleanup(self, pin: int = None):
-        try:
-            if pin is None:
-                self.lgpio.gpiochip_close(self.chip)
-                self.initialized_pins.clear()
-        except Exception as e:
-            log("ERROR", f"lgpio cleanup failed: {e}")
-
-
-class GPIOZeroBackend(GPIOBackend):
-    """gpiozero backend for Pi 1-4 (uses RPi.GPIO internally)."""
-    
-    name = "gpiozero"
-    
-    def __init__(self):
-        super().__init__()
-        from gpiozero import OutputDevice
-        self.OutputDevice = OutputDevice
-        self.devices = {}
-        log("GPIO", "Using gpiozero backend")
-    
-    def setup_output(self, pin: int, name: str = "") -> bool:
-        try:
-            device = self.OutputDevice(pin, initial_value=False)
-            self.devices[pin] = device
-            self.initialized_pins[pin] = name
-            return True
-        except Exception as e:
-            log("ERROR", f"gpiozero setup failed for pin {pin}: {e}")
-            return False
-    
-    def write(self, pin: int, value: bool) -> bool:
-        try:
-            if pin not in self.devices:
-                return False
-            if value:
-                self.devices[pin].on()
-            else:
-                self.devices[pin].off()
-            return True
-        except Exception as e:
-            log("ERROR", f"gpiozero write failed for pin {pin}: {e}")
-            return False
-    
-    def read(self, pin: int) -> Optional[bool]:
-        try:
-            if pin in self.devices:
-                return self.devices[pin].value == 1
-            return None
-        except:
-            return None
-    
-    def cleanup(self, pin: int = None):
-        try:
-            if pin and pin in self.devices:
-                self.devices[pin].close()
-                del self.devices[pin]
-                self.initialized_pins.pop(pin, None)
-            elif pin is None:
-                for device in self.devices.values():
-                    device.close()
-                self.devices.clear()
-                self.initialized_pins.clear()
-        except Exception as e:
-            log("ERROR", f"gpiozero cleanup failed: {e}")
-
-
-class DummyBackend(GPIOBackend):
-    """Dummy backend when no GPIO is available."""
-    
-    name = "dummy"
-    
-    def __init__(self):
-        super().__init__()
-        self.pin_states = {}
-        log("GPIO", "Using dummy backend (no real GPIO)")
-    
-    def setup_output(self, pin: int, name: str = "") -> bool:
-        self.pin_states[pin] = False
-        self.initialized_pins[pin] = name
-        return True
-    
-    def write(self, pin: int, value: bool) -> bool:
-        self.pin_states[pin] = value
-        return True
-    
-    def read(self, pin: int) -> Optional[bool]:
-        return self.pin_states.get(pin)
-    
-    def cleanup(self, pin: int = None):
-        if pin:
-            self.pin_states.pop(pin, None)
-            self.initialized_pins.pop(pin, None)
-        else:
-            self.pin_states.clear()
-            self.initialized_pins.clear()
-
-
-# ============================================================================
-# Backend Detection
-# ============================================================================
-
-def _detect_best_backend() -> GPIOBackend:
-    """Auto-detect and return the best available GPIO backend."""
-    
-    os_version = _get_os_version()
-    is_pi5 = _is_pi5()
-    
-    log("GPIO", f"Detecting backend: OS version={os_version}, Pi5={is_pi5}")
-    
-    # Priority based on OS and hardware
-    if os_version >= 13:
-        backends_to_try = ['gpiod', 'lgpio', 'gpiozero']
-    elif is_pi5:
-        backends_to_try = ['lgpio', 'gpiod', 'gpiozero']
-    else:
-        backends_to_try = ['gpiozero', 'lgpio', 'gpiod']
-    
-    for backend_name in backends_to_try:
-        try:
-            if backend_name == 'gpiod':
-                import gpiod
-                return GPIOdBackend()
-            elif backend_name == 'lgpio':
-                import lgpio
-                return LGPIOBackend()
-            elif backend_name == 'gpiozero':
-                from gpiozero import OutputDevice
-                return GPIOZeroBackend()
-        except ImportError:
-            log("GPIO", f"Backend {backend_name} not available")
-        except Exception as e:
-            log("GPIO", f"Backend {backend_name} init failed: {e}")
-    
-    return DummyBackend()
-
-
-# ============================================================================
-# GPIO Command Enum
-# ============================================================================
 
 class GPIOCommand(Enum):
     """Available GPIO commands."""
@@ -358,12 +60,16 @@ class GPIOCommand(Enum):
     RESTART = "restart"
 
 
-# ============================================================================
-# GPIO Manager (Singleton)
-# ============================================================================
-
 class GPIOManager:
-    """Thread-safe GPIO manager with command queue."""
+    """
+    Singleton GPIO manager with file-based command queue.
+    
+    Architecture:
+    - Only ONE process (watchdog daemon) directly controls GPIO
+    - Web interface writes commands to /opt/watchdog/commands/
+    - Daemon reads and executes commands
+    - Prevents race conditions and GPIO conflicts
+    """
     
     _instance = None
     _lock = threading.Lock()
@@ -381,93 +87,149 @@ class GPIOManager:
             return
         
         self._initialized = True
+        self._relays: Dict[int, OutputDevice] = {}
         self._gpio_lock = threading.Lock()
-        
-        # Initialize GPIO backend
-        self._backend = _detect_best_backend()
-        self._gpio_available = not isinstance(self._backend, DummyBackend)
+        self._command_callbacks: Dict[str, Callable] = {}
         
         # Ensure command directory exists
         os.makedirs(COMMAND_DIR, exist_ok=True)
-        
-        log("GPIO", f"Manager initialized, backend={self._backend.name}, available={self._gpio_available}")
-    
-    @property
-    def gpio_available(self) -> bool:
-        return self._gpio_available
-    
-    @property
-    def backend_name(self) -> str:
-        return self._backend.name
     
     def init_pin(self, pin: int, name: str = "") -> bool:
-        """Initialize a GPIO pin as output."""
+        """
+        Initialize GPIO pin for output.
+        Returns True if successful.
+        """
+        if not GPIO_AVAILABLE:
+            log("GPIO", f"GPIO not available (simulation mode)")
+            return True
+        
         if pin not in VALID_GPIO_PINS:
             log("ERROR", f"Invalid GPIO pin: {pin}")
             return False
         
         with self._gpio_lock:
-            return self._backend.setup_output(pin, name)
+            if pin in self._relays:
+                return True  # Already initialized
+            
+            try:
+                self._relays[pin] = OutputDevice(pin)
+                log("INIT", f"GPIO {pin} initialized ({name})")
+                return True
+            except Exception as e:
+                log("ERROR", f"GPIO {pin} init failed: {e}")
+                return False
     
     def set_pin(self, pin: int, state: bool) -> bool:
-        """Set GPIO pin state."""
+        """
+        Set GPIO pin state directly.
+        Only use from daemon process!
+        """
+        if not GPIO_AVAILABLE:
+            log("GPIO", f"Pin {pin} -> {'ON' if state else 'OFF'} (simulated)")
+            return True
+        
         with self._gpio_lock:
-            success = self._backend.write(pin, state)
-            if success:
-                log("GPIO", f"Pin {pin} -> {'ON' if state else 'OFF'}")
-            return success
+            if pin not in self._relays:
+                log("ERROR", f"GPIO {pin} not initialized")
+                return False
+            
+            try:
+                if state:
+                    self._relays[pin].on()
+                else:
+                    self._relays[pin].off()
+                return True
+            except Exception as e:
+                log("ERROR", f"GPIO {pin} set failed: {e}")
+                return False
     
-    def get_pin_state(self, pin: int) -> Optional[bool]:
-        """Get current pin state."""
+    def restart_pin(self, pin: int, off_time: int = 10) -> bool:
+        """
+        Power cycle: ON (relay activated = power cut) -> wait -> OFF (power restored)
+        Only use from daemon process!
+        """
+        if not GPIO_AVAILABLE:
+            log("GPIO", f"Pin {pin} restart for {off_time}s (simulated)")
+            return True
+        
         with self._gpio_lock:
-            return self._backend.read(pin)
+            if pin not in self._relays:
+                log("ERROR", f"GPIO {pin} not initialized")
+                return False
+            
+            try:
+                relay = self._relays[pin]
+                relay.on()  # Cut power
+                time.sleep(off_time)
+                relay.off()  # Restore power
+                return True
+            except Exception as e:
+                log("ERROR", f"GPIO {pin} restart failed: {e}")
+                return False
     
-    def queue_command(self, pin: int, command: GPIOCommand, 
-                      source: str = "unknown", off_time: int = 10) -> bool:
-        """Queue a command for watchdog daemon to execute."""
-        if pin not in VALID_GPIO_PINS:
-            log("ERROR", f"Invalid GPIO pin for command: {pin}")
-            return False
+    def cleanup(self):
+        """Release all GPIO resources."""
+        with self._gpio_lock:
+            for pin, relay in self._relays.items():
+                try:
+                    relay.off()
+                    relay.close()
+                except:
+                    pass
+            self._relays.clear()
+            log("SHUTDOWN", "GPIO resources released")
+    
+    # ==================== COMMAND QUEUE SYSTEM ====================
+    
+    def queue_command(self, group_name: str, outlet_key: str, command: GPIOCommand, 
+                      off_time: int = 10, source: str = "web") -> str:
+        """
+        Queue a command for the daemon to execute.
+        Used by web interface to avoid direct GPIO access.
+        Returns command ID.
+        """
+        command_id = f"{int(time.time() * 1000)}"
+        command_file = os.path.join(COMMAND_DIR, f"{command_id}.cmd")
         
         cmd_data = {
-            "pin": pin,
-            "command": command.value,
-            "source": source,
-            "off_time": off_time,
+            "id": command_id,
             "timestamp": datetime.now().isoformat(),
-            "processed": False
+            "group_name": group_name,
+            "outlet_key": outlet_key,
+            "command": command.value,
+            "off_time": off_time,
+            "source": source,
+            "status": "pending"
         }
         
-        cmd_file = os.path.join(COMMAND_DIR, f"cmd_{pin}_{int(time.time()*1000)}.json")
-        
         try:
-            fd = os.open(cmd_file, os.O_CREAT | os.O_WRONLY | os.O_EXCL, 0o644)
-            with os.fdopen(fd, 'w') as f:
+            with open(command_file, 'w') as f:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                 json.dump(cmd_data, f)
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
             
-            log("GPIO", f"Command queued: pin={pin}, cmd={command.value}")
-            return True
-            
+            log("COMMAND", f"Queued {command.value} for [{group_name}] from {source}")
+            return command_id
         except Exception as e:
             log("ERROR", f"Failed to queue command: {e}")
-            return False
+            return ""
     
-    def process_commands(self, callback: Callable[[int, GPIOCommand, int], bool] = None) -> int:
-        """Process pending commands. Called by watchdog daemon."""
-        processed = 0
-        
-        try:
-            cmd_files = sorted([
-                f for f in os.listdir(COMMAND_DIR) 
-                if f.startswith('cmd_') and f.endswith('.json')
-            ])
-        except FileNotFoundError:
+    def process_commands(self, outlets_config: dict) -> int:
+        """
+        Process pending commands from queue.
+        Called by daemon in main loop.
+        Returns number of commands processed.
+        """
+        if not os.path.exists(COMMAND_DIR):
             return 0
         
-        for cmd_file in cmd_files:
-            cmd_path = os.path.join(COMMAND_DIR, cmd_file)
+        processed = 0
+        
+        for filename in sorted(os.listdir(COMMAND_DIR)):
+            if not filename.endswith('.cmd'):
+                continue
+            
+            cmd_path = os.path.join(COMMAND_DIR, filename)
             
             try:
                 with open(cmd_path, 'r') as f:
@@ -475,85 +237,78 @@ class GPIOManager:
                     cmd_data = json.load(f)
                     fcntl.flock(f.fileno(), fcntl.LOCK_UN)
                 
-                if cmd_data.get("processed"):
+                if cmd_data.get("status") != "pending":
                     os.remove(cmd_path)
                     continue
                 
-                pin = cmd_data["pin"]
-                command = GPIOCommand(cmd_data["command"])
-                off_time = cmd_data.get("off_time", 10)
+                # Execute command
+                outlet_key = cmd_data.get("outlet_key")
+                outlet = outlets_config.get(outlet_key)
                 
-                if callback:
-                    success = callback(pin, command, off_time)
-                else:
-                    success = self._execute_command(pin, command, off_time)
-                
-                if success:
-                    processed += 1
-                
-                os.remove(cmd_path)
-                
-            except Exception as e:
-                log("ERROR", f"Failed to process command {cmd_file}: {e}")
-                try:
+                if not outlet:
+                    log("ERROR", f"Unknown outlet: {outlet_key}")
                     os.remove(cmd_path)
-                except:
-                    pass
+                    continue
+                
+                pin = outlet["gpio_pin"]
+                command = cmd_data.get("command")
+                group_name = cmd_data.get("group_name", "Unknown")
+                
+                if command == "on":
+                    self.set_pin(pin, True)
+                    log("MANUAL", f"[{group_name}] Power ON via {cmd_data.get('source', 'unknown')}")
+                elif command == "off":
+                    self.set_pin(pin, False)
+                    log("MANUAL", f"[{group_name}] Power OFF via {cmd_data.get('source', 'unknown')}")
+                elif command == "restart":
+                    off_time = cmd_data.get("off_time", 10)
+                    log("MANUAL", f"[{group_name}] Manual restart for {off_time}s")
+                    self.restart_pin(pin, off_time)
+                    log("MANUAL", f"[{group_name}] Power restored")
+                
+                # Remove processed command
+                os.remove(cmd_path)
+                processed += 1
+                
+            except json.JSONDecodeError:
+                log("ERROR", f"Invalid command file: {filename}")
+                os.remove(cmd_path)
+            except Exception as e:
+                log("ERROR", f"Command processing error: {e}")
         
         return processed
     
-    def _execute_command(self, pin: int, command: GPIOCommand, off_time: int = 10) -> bool:
-        """Execute a GPIO command directly."""
-        try:
-            if command == GPIOCommand.ON:
-                return self.set_pin(pin, True)
-            
-            elif command == GPIOCommand.OFF:
-                return self.set_pin(pin, False)
-            
-            elif command == GPIOCommand.RESTART:
-                self.set_pin(pin, False)
-                log("GPIO", f"Pin {pin} OFF for {off_time}s")
-                time.sleep(off_time)
-                self.set_pin(pin, True)
-                log("GPIO", f"Pin {pin} ON")
-                return True
-            
-            return False
-            
-        except Exception as e:
-            log("ERROR", f"Command execution failed: {e}")
-            return False
+    def get_pending_commands(self) -> list:
+        """Get list of pending commands."""
+        if not os.path.exists(COMMAND_DIR):
+            return []
+        
+        commands = []
+        for filename in os.listdir(COMMAND_DIR):
+            if filename.endswith('.cmd'):
+                try:
+                    with open(os.path.join(COMMAND_DIR, filename)) as f:
+                        commands.append(json.load(f))
+                except:
+                    pass
+        
+        return sorted(commands, key=lambda x: x.get("timestamp", ""))
     
     def clear_old_commands(self, max_age_seconds: int = 300):
-        """Remove old command files that were never processed."""
-        try:
-            now = time.time()
-            for filename in os.listdir(COMMAND_DIR):
-                if filename.startswith('cmd_') and filename.endswith('.json'):
-                    filepath = os.path.join(COMMAND_DIR, filename)
-                    try:
-                        file_age = now - os.path.getmtime(filepath)
-                        if file_age > max_age_seconds:
-                            os.remove(filepath)
-                            log("GPIO", f"Removed old command file: {filename}")
-                    except:
-                        pass
-        except FileNotFoundError:
-            pass
-        except Exception as e:
-            log("ERROR", f"Failed to clear old commands: {e}")
-    
-    def cleanup(self):
-        """Cleanup GPIO resources."""
-        with self._gpio_lock:
-            self._backend.cleanup()
-        log("GPIO", "Cleanup complete")
-    
-    def get_initialized_pins(self) -> Dict[int, str]:
-        """Get dict of initialized pins."""
-        return dict(self._backend.initialized_pins)
+        """Remove commands older than max_age_seconds."""
+        if not os.path.exists(COMMAND_DIR):
+            return
+        
+        now = time.time()
+        for filename in os.listdir(COMMAND_DIR):
+            if filename.endswith('.cmd'):
+                filepath = os.path.join(COMMAND_DIR, filename)
+                try:
+                    if now - os.path.getmtime(filepath) > max_age_seconds:
+                        os.remove(filepath)
+                except:
+                    pass
 
 
-# Global singleton instance
+# Global instance
 gpio_manager = GPIOManager()

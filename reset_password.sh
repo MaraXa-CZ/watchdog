@@ -33,16 +33,23 @@ from werkzeug.security import generate_password_hash
 
 try:
     with open("$INSTALL_DIR/users.json", "r") as f:
-        users = json.load(f)
+        data = json.load(f)
+    
+    # Handle both old and new format
+    if "users" in data:
+        users = data["users"]
+    else:
+        users = data
+        data = {"users": users}
     
     if "$USERNAME" not in users:
         print("User '$USERNAME' not found!")
         exit(1)
     
-    users["$USERNAME"]["password"] = generate_password_hash("$PASSWORD")
+    users["$USERNAME"]["password_hash"] = generate_password_hash("$PASSWORD")
     
     with open("$INSTALL_DIR/users.json", "w") as f:
-        json.dump(users, f, indent=2)
+        json.dump(data, f, indent=2)
     
     print("")
     print("Password changed for user: $USERNAME")
