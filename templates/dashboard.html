@@ -55,7 +55,7 @@
             </div>
             {% endif %}
             
-            {% if has_permission('control_relays') and not group.stats_only %}
+            {% if has_permission('control_relays') and group.outlet %}
             <div class="control-buttons">
                 <form method="post" action="/control" style="display: contents;">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
