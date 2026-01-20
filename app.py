@@ -1052,6 +1052,8 @@ def system():
             
             cfg['log_max_kb'] = int(request.form.get('log_max_kb', 512))
             cfg['log_view_lines'] = int(request.form.get('log_view_lines', 50))
+            cfg['audit_retention_days'] = int(request.form.get('audit_retention_days', 90))
+            cfg['stats_retention_days'] = int(request.form.get('stats_retention_days', 30))
             
             # Features
             cfg['features']['live_status'] = request.form.get('live_status') == 'true'
@@ -1418,47 +1420,106 @@ def api_ping_server(target):
 
 @app.route('/logs/delete', methods=['POST'])
 @login_required
-@permission_required('manage_system')
+@permission_required('control_relays')  # Operator+
 @csrf_protect
 def delete_logs():
-    """Delete log files."""
-    import glob
-    
-    log_type = request.form.get('log_type', 'all')
+    """Delete system log file (not audit)."""
     log_dir = os.path.join(os.path.dirname(CONFIG_FILE), 'log')
     
     try:
-        deleted = 0
+        log_file = os.path.join(log_dir, 'watchdog.log')
+        if os.path.exists(log_file):
+            with open(log_file, 'w') as f:
+                f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO     | Log cleared by {session['username']}\n")
         
-        if log_type in ['all', 'watchdog']:
-            log_file = os.path.join(log_dir, 'watchdog.log')
-            if os.path.exists(log_file):
-                # Truncate instead of delete (keep file, clear content)
-                with open(log_file, 'w') as f:
-                    f.write(f"[{datetime.now().isoformat()}] Log cleared by {session['username']}\n")
-                deleted += 1
+        # Also delete rotated log
+        old_log = log_file + ".old"
+        if os.path.exists(old_log):
+            os.remove(old_log)
         
-        if log_type in ['all', 'audit']:
-            audit_file = os.path.join(log_dir, 'audit.log')
-            if os.path.exists(audit_file):
-                with open(audit_file, 'w') as f:
-                    f.write(f"[{datetime.now().isoformat()}] Audit log cleared by {session['username']}\n")
-                deleted += 1
-        
-        if log_type in ['all', 'old']:
-            # Delete rotated logs
-            for pattern in ['*.log.*', '*.log.gz']:
-                for f in glob.glob(os.path.join(log_dir, pattern)):
-                    os.remove(f)
-                    deleted += 1
-        
-        audit_log.log_config_change(session['username'], "logs", f"Deleted logs: {log_type}", request.remote_addr)
-        flash(f"Logs cleared ({deleted} files)", "success")
+        audit_log.log_config_change(session['username'], "logs", "System log cleared", request.remote_addr)
+        flash("Log cleared" if session.get('language') == 'en' else "Log smazán", "success")
         
     except Exception as e:
         flash(f"{t('common.error')}: {e}", "error")
     
     return redirect(url_for('logs'))
+
+
+@app.route('/audit/delete', methods=['POST'])
+@login_required
+@permission_required('manage_system')  # Admin only
+@csrf_protect
+def delete_audit():
+    """Delete audit log entries."""
+    older_than = int(request.form.get('older_than', 0))
+    
+    try:
+        audit_log.clear(older_than_days=older_than)
+        
+        if older_than > 0:
+            msg = f"Audit entries older than {older_than} days deleted"
+        else:
+            msg = "Audit log cleared"
+        
+        audit_log.log_config_change(session['username'], "audit", msg, request.remote_addr)
+        flash(msg, "success")
+        
+    except Exception as e:
+        flash(f"{t('common.error')}: {e}", "error")
+    
+    return redirect(url_for('audit'))
+
+
+@app.route('/system/clear-stats', methods=['POST'])
+@login_required
+@permission_required('manage_system')
+@csrf_protect
+def clear_stats():
+    """Clear all statistics files."""
+    import glob
+    
+    stats_dir = os.path.join(os.path.dirname(CONFIG_FILE), 'stats')
+    
+    try:
+        deleted = 0
+        for f in glob.glob(os.path.join(stats_dir, '*.json')):
+            os.remove(f)
+            deleted += 1
+        
+        audit_log.log_config_change(session['username'], "stats", f"Cleared {deleted} stats files", request.remote_addr)
+        flash(f"Statistics cleared ({deleted} files)" if session.get('language') == 'en' else f"Statistiky smazány ({deleted} souborů)", "success")
+        
+    except Exception as e:
+        flash(f"{t('common.error')}: {e}", "error")
+    
+    return redirect(url_for('system'))
+
+
+@app.route('/system/clear-old-logs', methods=['POST'])
+@login_required
+@permission_required('manage_system')
+@csrf_protect
+def clear_old_logs():
+    """Clear rotated log files."""
+    import glob
+    
+    log_dir = os.path.join(os.path.dirname(CONFIG_FILE), 'log')
+    
+    try:
+        deleted = 0
+        for pattern in ['*.log.old', '*.log.gz', '*.log.[0-9]*']:
+            for f in glob.glob(os.path.join(log_dir, pattern)):
+                os.remove(f)
+                deleted += 1
+        
+        audit_log.log_config_change(session['username'], "logs", f"Cleared {deleted} rotated logs", request.remote_addr)
+        flash(f"Rotated logs cleared ({deleted} files)" if session.get('language') == 'en' else f"Rotované logy smazány ({deleted} souborů)", "success")
+        
+    except Exception as e:
+        flash(f"{t('common.error')}: {e}", "error")
+    
+    return redirect(url_for('system'))
 
 
 # ==================== Statistics Export ====================

@@ -30,6 +30,14 @@
         
         <button type="submit" class="btn btn-primary">{{ t('audit.filter') }}</button>
         <a href="/audit" class="btn btn-secondary">Reset</a>
+        
+        {% if has_permission('manage_system') %}
+        <div style="margin-left: auto;">
+            <button type="button" class="btn btn-power-off" onclick="document.getElementById('delete-audit-modal').style.display='flex'">
+                🗑️ {{ 'Smazat audit' if language == 'cs' else 'Delete Audit' }}
+            </button>
+        </div>
+        {% endif %}
     </form>
 </div>
 
@@ -68,4 +76,40 @@
     </p>
     {% endif %}
 </div>
+
+<!-- Delete Audit Modal -->
+{% if has_permission('manage_system') %}
+<div id="delete-audit-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: var(--card-bg); padding: 30px; border-radius: 10px; max-width: 450px; width: 90%;">
+        <h3 style="margin-top: 0;">🗑️ {{ 'Smazat audit log' if language == 'cs' else 'Delete Audit Log' }}</h3>
+        <p style="color: var(--warning-color); margin-bottom: 15px;">
+            ⚠️ {{ 'Tato akce je nevratná! Audit log obsahuje důležité bezpečnostní záznamy.' if language == 'cs' else 'This action is irreversible! Audit log contains important security records.' }}
+        </p>
+        <form method="post" action="/audit/delete">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="form-group">
+                <label>{{ 'Smazat záznamy starší než' if language == 'cs' else 'Delete records older than' }}:</label>
+                <select name="older_than" style="width: 100%; padding: 10px; margin-top: 5px;">
+                    <option value="0">{{ 'Vše' if language == 'cs' else 'Everything' }}</option>
+                    <option value="7">7 {{ 'dní' if language == 'cs' else 'days' }}</option>
+                    <option value="30" selected>30 {{ 'dní' if language == 'cs' else 'days' }}</option>
+                    <option value="90">90 {{ 'dní' if language == 'cs' else 'days' }}</option>
+                    <option value="180">180 {{ 'dní' if language == 'cs' else 'days' }}</option>
+                    <option value="365">365 {{ 'dní' if language == 'cs' else 'days' }}</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="btn btn-power-off" onclick="return confirm('{{ 'Opravdu smazat audit log?' if language == 'cs' else 'Really delete audit log?' }}')">
+                    🗑️ {{ 'Smazat' if language == 'cs' else 'Delete' }}
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('delete-audit-modal').style.display='none'">
+                    {{ 'Zrušit' if language == 'cs' else 'Cancel' }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

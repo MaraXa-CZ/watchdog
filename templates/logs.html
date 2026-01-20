@@ -41,10 +41,10 @@
         </button>
     </div>
     
-    {% if has_permission('manage_system') %}
+    {% if has_permission('control_relays') %}
     <div style="margin-left: auto;">
         <button class="btn btn-power-off" onclick="document.getElementById('delete-modal').style.display='flex'">
-            🗑️ {{ 'Smazat' if language == 'cs' else 'Delete' }}
+            🗑️ {{ 'Smazat log' if language == 'cs' else 'Delete Log' }}
         </button>
     </div>
     {% endif %}
@@ -66,26 +66,19 @@
 </div>
 
 <!-- Delete Modal -->
-{% if has_permission('manage_system') %}
+{% if has_permission('control_relays') %}
 <div id="delete-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
     <div style="background: var(--card-bg); padding: 30px; border-radius: 10px; max-width: 400px; width: 90%;">
-        <h3 style="margin-top: 0;">🗑️ {{ 'Smazat logy' if language == 'cs' else 'Delete Logs' }}</h3>
+        <h3 style="margin-top: 0;">🗑️ {{ 'Smazat systémový log' if language == 'cs' else 'Delete System Log' }}</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+            {{ 'Tato akce smaže systémový log (watchdog.log). Audit log zůstane zachován.' if language == 'cs' else 'This will delete the system log (watchdog.log). Audit log will be preserved.' }}
+        </p>
         <form method="post" action="/logs/delete">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             
-            <div class="form-group">
-                <label>{{ 'Vyberte typ' if language == 'cs' else 'Select type' }}:</label>
-                <select name="log_type" style="width: 100%; padding: 10px; margin-top: 5px;">
-                    <option value="all">{{ 'Všechny logy' if language == 'cs' else 'All logs' }}</option>
-                    <option value="watchdog">watchdog.log</option>
-                    <option value="audit">audit.log</option>
-                    <option value="old">{{ 'Rotované' if language == 'cs' else 'Rotated' }}</option>
-                </select>
-            </div>
-            
             <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="submit" class="btn btn-power-off" onclick="return confirm('{{ 'Opravdu?' if language == 'cs' else 'Sure?' }}')">
-                    {{ 'Smazat' if language == 'cs' else 'Delete' }}
+                <button type="submit" class="btn btn-power-off" onclick="return confirm('{{ 'Opravdu smazat log?' if language == 'cs' else 'Really delete log?' }}')">
+                    🗑️ {{ 'Smazat' if language == 'cs' else 'Delete' }}
                 </button>
                 <button type="button" class="btn btn-secondary" onclick="document.getElementById('delete-modal').style.display='none'">
                     {{ 'Zrušit' if language == 'cs' else 'Cancel' }}

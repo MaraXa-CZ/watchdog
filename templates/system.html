@@ -109,14 +109,49 @@
         <h3>{{ t('system.logging') }}</h3>
         <div class="form-row">
             <div class="form-group">
-                <label>{{ t('system.log_max_size') }} (KB)</label>
+                <label>{{ 'Max. velikost logu' if language == 'cs' else 'Max log size' }} (KB)</label>
                 <input type="number" name="log_max_kb" value="{{ config.log_max_kb | default(512) }}" min="100" max="10240">
+                <div class="help">{{ 'Po překročení se log rotuje' if language == 'cs' else 'Log rotates when exceeded' }}</div>
             </div>
             
             <div class="form-group">
-                <label>{{ t('system.log_lines') }}</label>
+                <label>{{ 'Řádků na stránce' if language == 'cs' else 'Lines per page' }}</label>
                 <input type="number" name="log_view_lines" value="{{ config.log_view_lines | default(50) }}" min="10" max="200">
             </div>
+            
+            <div class="form-group">
+                <label>{{ 'Audit - uchovat dnů' if language == 'cs' else 'Audit - keep days' }}</label>
+                <input type="number" name="audit_retention_days" value="{{ config.audit_retention_days | default(90) }}" min="7" max="365">
+                <div class="help">{{ 'Starší záznamy se automaticky mažou' if language == 'cs' else 'Older records are auto-deleted' }}</div>
+            </div>
+            
+            <div class="form-group">
+                <label>{{ 'Statistiky - uchovat dnů' if language == 'cs' else 'Stats - keep days' }}</label>
+                <input type="number" name="stats_retention_days" value="{{ config.stats_retention_days | default(30) }}" min="1" max="365">
+                <div class="help">{{ 'Starší statistiky se automaticky mažou' if language == 'cs' else 'Older stats are auto-deleted' }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h3>{{ 'Údržba dat' if language == 'cs' else 'Data Maintenance' }}</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 15px;">
+            {{ 'Ruční mazání dat. Automatická rotace probíhá podle nastavení výše.' if language == 'cs' else 'Manual data deletion. Automatic rotation follows settings above.' }}
+        </p>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <form method="post" action="/system/clear-stats" style="display: inline;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-secondary" onclick="return confirm('{{ 'Smazat všechny statistiky?' if language == 'cs' else 'Delete all statistics?' }}')">
+                    📊 {{ 'Smazat statistiky' if language == 'cs' else 'Clear Statistics' }}
+                </button>
+            </form>
+            
+            <form method="post" action="/system/clear-old-logs" style="display: inline;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-secondary" onclick="return confirm('{{ 'Smazat rotované logy?' if language == 'cs' else 'Delete rotated logs?' }}')">
+                    📄 {{ 'Smazat rotované logy' if language == 'cs' else 'Clear Rotated Logs' }}
+                </button>
+            </form>
         </div>
     </div>
     

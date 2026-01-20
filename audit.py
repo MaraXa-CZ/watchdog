@@ -194,6 +194,34 @@ class AuditLogger:
         except Exception as e:
             print(f"Audit cleanup error: {e}")
     
+    def clear(self, older_than_days: int = 0):
+        """
+        Clear audit log.
+        
+        Args:
+            older_than_days: If 0, clear all. Otherwise keep entries newer than this.
+        """
+        if older_than_days > 0:
+            self.cleanup(days=older_than_days)
+        else:
+            # Clear everything
+            try:
+                with open(self.log_file, "w") as f:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                    # Write a marker entry
+                    entry = {
+                        "timestamp": datetime.now().isoformat(),
+                        "event": "audit_cleared",
+                        "user": "admin",
+                        "ip": "",
+                        "target": "",
+                        "details": "Audit log cleared"
+                    }
+                    f.write(json.dumps(entry) + "\n")
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            except Exception as e:
+                print(f"Audit clear error: {e}")
+    
     # Convenience methods
     def log_login(self, username: str, ip: str):
         self.log(AUDIT_LOGIN, username, ip_address=ip)
